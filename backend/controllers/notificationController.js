@@ -1,4 +1,4 @@
-import Notification from "../models/Notification.js";
+import Notification from "../models/notification.js";
 import ClassSchedule from "../models/classSchedule.js";
 import User from "../models/user.js";
 import Tutor from "../models/tutor.js"; // Needed for permissions check
