@@ -18,9 +18,14 @@ dotenv.config();
 const app = express();
 
 app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  credentials: false
+  origin: [
+    'https://amsa-learning-management-system.vercel.app',
+    'http://localhost:3000',                               
+    'http://localhost:5173',                               
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  credentials: true, 
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(express.json());
 
