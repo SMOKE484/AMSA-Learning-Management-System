@@ -1,5 +1,5 @@
 import ClassSchedule from "../models/classSchedule.js";
-import Attendance from "../models/Attendance.js";
+import Attendance from "../models/attendance.js";
 import Student from "../models/student.js";
 import Tutor from "../models/tutor.js";
 import { sendClassNotification } from "../utils/notificationService.js";
