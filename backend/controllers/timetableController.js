@@ -1,5 +1,5 @@
 import ClassSchedule from "../models/ClassSchedule.js";
-import Attendance from "../models/Attendance.js";
+import Attendance from "../models/attendance.js";
 import { TimeService } from "../utils/timeService.js";
 
 // Get student timetable
