@@ -1,7 +1,7 @@
 import { Expo } from 'expo-server-sdk';
 import Student from '../models/student.js';
 import User from '../models/user.js';
-import Notification from '../models/Notification.js';
+import Notification from '../models/notification.js';
 
 const expo = new Expo();
 
