@@ -1,4 +1,4 @@
-import ClassSchedule from "../models/ClassSchedule.js";
+import ClassSchedule from "../models/classSchedule.js";
 import { TimeService } from "../utils/timeService.js";
 
 /**
