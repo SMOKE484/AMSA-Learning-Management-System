@@ -1,5 +1,5 @@
 import { GeoService } from '../utils/geoService.js';
-import SchoolConfig from '../models/SchoolConfig.js';
+import SchoolConfig from '../models/schoolConfig.js';
 
 /**
  * Validate geo-location for attendance actions
