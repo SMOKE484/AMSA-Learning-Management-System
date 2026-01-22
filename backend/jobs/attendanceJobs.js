@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import ClassSchedule from "../models/classSchedule.js";
-import Attendance from "../models/Attendance.js";
+import Attendance from "../models/attendance.js";
 import { NotificationService } from "../utils/notificationService.js";
 import { TimeService } from "../utils/timeService.js"; 
 
