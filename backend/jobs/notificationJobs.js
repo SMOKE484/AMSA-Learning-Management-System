@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { NotificationService } from "../utils/notificationService.js";
-import Notification from "../models/Notification.js";
+import Notification from "../models/notification.js";
 
 export class NotificationJobs {
   static start() {
