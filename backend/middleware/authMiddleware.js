@@ -94,9 +94,10 @@ export const authenticate = async (req, res, next) => {
 export const authorize = (...roles) => {
   return (req, res, next) => {
     
-    // Flatten roles array in case it's nested
-
+    // 1. Combine and flatten the roles (handles both authorize('admin') and authorize(['admin']))
+    const allowedRoles = roles.flat();
     
+    // 2. Now 'allowedRoles' is actually defined!
     if (!allowedRoles.includes(req.role)) {
       return res.status(403).json({ 
         message: `Access forbidden. Required roles: ${allowedRoles.join(', ')}. Your role: ${req.role}` 
