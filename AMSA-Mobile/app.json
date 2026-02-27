@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "AMSA LMS",
+    "slug": "AMSA-Mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/amsaIcon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/amsaLogo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vhulenda.AMSAMobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.vhulenda.AMSAMobile",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/amsaLogo.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/amsaLogo.png"
+    },
+    "plugins": [
+      "expo-build-properties",
+      "expo-web-browser",
+      "expo-router",
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/amsaIcon.png",
+          "color": "#ffffff"
+        }
+      ]
+    ],
+    "extra": {
+      
+      "eas": {
+        "projectId": "8bb4dd4c-4aa2-4283-b5a2-83ca9b27f39d"
+      }
+    },
+    "owner": "vhulenda"
+  }
+}
