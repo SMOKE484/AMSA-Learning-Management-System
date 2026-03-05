@@ -1,0 +1,79 @@
+name: EAS Build, Submit & Update
+
+on:
+  push:
+    branches:
+      - main      # OTA update on every push
+      - release   # Full build + store submit on release branch
+  workflow_dispatch:  # Allow manual trigger from GitHub UI
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # JS-only OTA update → users get it instantly, no store review needed
+  # Runs on every push to main
+  # ─────────────────────────────────────────────────────────────────────────
+  ota-update:
+    name: OTA Update (JS changes)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: AMSA-Mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: AMSA-Mobile
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Publish OTA update
+        run: eas update --branch production --message "${{ github.event.head_commit.message }}" --non-interactive
+        working-directory: AMSA-Mobile
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Full native build + app store submission
+  # Runs only when you push to the 'release' branch
+  # ─────────────────────────────────────────────────────────────────────────
+  build-and-submit:
+    name: Build & Submit to App Stores
+    if: github.ref == 'refs/heads/release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: AMSA-Mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: AMSA-Mobile
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build for all platforms
+        run: eas build --platform all --profile production --non-interactive
+        working-directory: AMSA-Mobile
+
+      - name: Submit to App Stores
+        run: eas submit --platform all --profile production --non-interactive
+        working-directory: AMSA-Mobile
