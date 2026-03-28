@@ -20,6 +20,7 @@ const app = express();
 app.use(cors({
   origin: [
     'https://amsa-learning-management-system.vercel.app',
+    'https://amsa-learning-management-system-cxwxt73t0.vercel.app',
     'http://localhost:3000',                               
     'http://localhost:5173',                               
   ],
