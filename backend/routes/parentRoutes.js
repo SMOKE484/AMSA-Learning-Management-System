@@ -3,6 +3,7 @@ import {
   getMyProfile,
   getMyChildren,
   getMyChildrenMarks,
+  getMyChildrenAttendance,
 } from "../controllers/parentController.js";
 import { authenticate, authorize } from "../middleware/authMiddleware.js";
 import { cache } from "../middleware/cacheMiddleware.js";
@@ -15,6 +16,7 @@ router.use(authorize("parent"));
 
 router.get("/me", cache(300), getMyProfile);
 router.get("/me/children", cache(300), getMyChildren);
-router.get("/me/marks", cache(300), getMyChildrenMarks); // The endpoint you want
+router.get("/me/marks", cache(300), getMyChildrenMarks);
+router.get("/me/attendance", cache(300), getMyChildrenAttendance);
 
 export default router;

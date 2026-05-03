@@ -68,19 +68,24 @@ export const deleteUser = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Try to delete from User collection first
     const deletedUser = await User.findByIdAndDelete(userId);
     if (!deletedUser) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Delete linked Tutor or Student records
+    // Delete linked profile records
     await Tutor.deleteOne({ user: userId });
     await Student.deleteOne({ user: userId });
 
-    res
-      .status(200)
-      .json({ message: "User and linked records deleted successfully" });
+    // If a parent was deleted, remove their ID from all students' parents arrays
+    if (deletedUser.role === "parent") {
+      await Student.updateMany(
+        { parents: userId },
+        { $pull: { parents: userId } }
+      );
+    }
+
+    res.status(200).json({ message: "User and linked records deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

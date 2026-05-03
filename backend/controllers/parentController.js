@@ -1,6 +1,7 @@
 import Student from "../models/student.js";
 import Mark from "../models/mark.js";
 import User from "../models/user.js";
+import Attendance from "../models/attendance.js";
 
 // Get parent profile
 export const getMyProfile = async (req, res) => {
@@ -24,6 +25,25 @@ export const getMyChildren = async (req, res) => {
     );
 
     res.status(200).json({ children });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get attendance rate for all linked children
+export const getMyChildrenAttendance = async (req, res) => {
+  try {
+    const children = await Student.find({ parents: req.userId }).select('_id');
+    if (!children.length) return res.status(200).json({ rate: 0, total: 0, present: 0 });
+
+    const childrenIds = children.map(c => c._id);
+    const records = await Attendance.find({ student: { $in: childrenIds } });
+
+    const total = records.length;
+    const present = records.filter(r => r.status === 'present' || r.status === 'late').length;
+    const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+
+    res.status(200).json({ rate, total, present });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
