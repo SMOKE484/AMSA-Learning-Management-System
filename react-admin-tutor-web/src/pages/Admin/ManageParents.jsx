@@ -4,8 +4,9 @@ import {
   Box, Typography, TextField, Button, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, CircularProgress,
   Grid, FormControl, InputLabel, Select, MenuItem, Chip, OutlinedInput,
-  Dialog, DialogTitle, DialogContent, DialogActions
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { format } from 'date-fns';
 import api from '../../services/apiService';
 import { useSnackbar } from '../../context/SnackbarContext';
@@ -124,6 +125,17 @@ const ManageParents = () => {
     }
   };
 
+  const handleDelete = async (userId) => {
+    if (!window.confirm('Are you sure you want to delete this parent? They will be unlinked from all students. This cannot be undone.')) return;
+    try {
+      await api.delete(`/admin/users/${userId}`);
+      showSnackbar('Parent deleted successfully', 'success');
+      await fetchData();
+    } catch (err) {
+      showSnackbar(err.response?.data?.message || 'Failed to delete parent.', 'error');
+    }
+  };
+
   const openLinkDialog = (student) => {
     setSelectedStudent(student);
     setLinkDialogOpen(true);
@@ -239,6 +251,7 @@ const ManageParents = () => {
                 <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Linked Students</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Joined</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -265,6 +278,16 @@ const ManageParents = () => {
                     <Typography variant="body2" sx={{ color: '#64748b' }}>
                       {format(new Date(parent.createdAt), 'dd MMM yyyy')}
                     </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <IconButton
+                      color="error"
+                      size="small"
+                      title="Delete Parent"
+                      onClick={() => handleDelete(parent._id)}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               ))}

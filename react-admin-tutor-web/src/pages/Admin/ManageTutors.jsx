@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, TextField, Button, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, CircularProgress,
-  Grid, FormControl, InputLabel, Select, MenuItem, Chip, OutlinedInput
+  Grid, FormControl, InputLabel, Select, MenuItem, Chip, OutlinedInput,
+  IconButton
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { format } from 'date-fns';
 import api from '../../services/apiService';
 import { academicService } from '../../services/academicService';
@@ -88,6 +90,18 @@ const ManageTutors = () => {
       showSnackbar(err.response?.data?.message || 'Failed to add tutor.', 'error');
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const handleDelete = async (userId) => {
+    if (!window.confirm('Are you sure you want to delete this tutor? This cannot be undone.')) return;
+    try {
+      await api.delete(`/admin/users/${userId}`);
+      showSnackbar('Tutor deleted successfully', 'success');
+      const tutorsRes = await api.get('/admin/tutors');
+      setTutors(tutorsRes.data.tutors);
+    } catch (err) {
+      showSnackbar(err.response?.data?.message || 'Failed to delete tutor.', 'error');
     }
   };
 
@@ -259,6 +273,7 @@ const ManageTutors = () => {
                 <TableCell sx={{ fontWeight: 600 }}>Grades</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Subjects</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Joined</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -311,6 +326,16 @@ const ManageTutors = () => {
                     <Typography variant="body2" sx={{ color: '#64748b' }}>
                       {format(new Date(tutor.createdAt), 'dd MMM yyyy')}
                     </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <IconButton
+                      color="error"
+                      size="small"
+                      title="Delete Tutor"
+                      onClick={() => handleDelete(tutor.user._id)}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               ))}

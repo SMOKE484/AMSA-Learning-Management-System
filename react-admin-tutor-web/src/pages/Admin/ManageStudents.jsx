@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, TextField, Button, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, CircularProgress,
-  Grid, FormControl, InputLabel, Select, MenuItem, Chip, OutlinedInput
+  Grid, FormControl, InputLabel, Select, MenuItem, Chip, OutlinedInput,
+  IconButton
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { format } from 'date-fns';
 import api from '../../services/apiService';
 import { academicService } from '../../services/academicService';
@@ -107,6 +109,18 @@ const handleSubmit = async (e) => {
     setFormLoading(false);
   }
 };
+
+  const handleDelete = async (userId) => {
+    if (!window.confirm('Are you sure you want to delete this student? This cannot be undone.')) return;
+    try {
+      await api.delete(`/admin/users/${userId}`);
+      showSnackbar('Student deleted successfully', 'success');
+      const studentsRes = await api.get('/admin/students');
+      setStudents(studentsRes.data.students);
+    } catch (err) {
+      showSnackbar(err.response?.data?.message || 'Failed to delete student.', 'error');
+    }
+  };
 
   return (
     <Box>
@@ -272,6 +286,7 @@ const handleSubmit = async (e) => {
                 <TableCell sx={{ fontWeight: 600 }}>Subjects</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Parents</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Joined</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -317,6 +332,16 @@ const handleSubmit = async (e) => {
                     <Typography variant="body2" sx={{ color: '#64748b' }}>
                       {format(new Date(student.createdAt), 'dd MMM yyyy')}
                     </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <IconButton
+                      color="error"
+                      size="small"
+                      title="Delete Student"
+                      onClick={() => handleDelete(student.user._id)}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               ))}
