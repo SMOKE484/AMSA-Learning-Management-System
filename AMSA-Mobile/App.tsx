@@ -205,6 +205,20 @@ const ParentTabNavigator: React.FC = () => (
 
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PARENT STACK (mirrors StudentStackNavigator structure)
+// ═══════════════════════════════════════════════════════════════════════════
+const ParentStackNavigator: React.FC = () => (
+  <Stack.Navigator>
+    <Stack.Screen
+      name="ParentTabs"
+      component={ParentTabNavigator}
+      options={{ headerShown: false }}
+    />
+  </Stack.Navigator>
+);
+
+
+// ═══════════════════════════════════════════════════════════════════════════
 // STUDENT STACK (adds Calendar)
 // ═══════════════════════════════════════════════════════════════════════════
 const StudentStackNavigator: React.FC = () => (
@@ -273,7 +287,7 @@ const Navigation: React.FC = () => {
         ) : user.role === 'student' ? (
           <Stack.Screen name="StudentApp" component={StudentStackNavigator} />
         ) : user.role === 'parent' ? (
-          <Stack.Screen name="ParentApp" component={ParentTabNavigator} />
+          <Stack.Screen name="ParentApp" component={ParentStackNavigator} />
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />
         )}

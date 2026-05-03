@@ -8,13 +8,12 @@ import { useAuth } from '../../context/AuthContext';
 import { parentService } from '../../services/parent';
 import { useNavigation } from '@react-navigation/native';
 import { Icon } from '../../components/Icon';
-import { BlurView } from 'expo-blur';
 import BouncingDotsLoader from '../../components/BouncingDotsLoader';
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
 import { BRAND } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
-
-
+
+
 
 // ─── MenuItem ────────────────────────────────────────────────────────────────
 const MenuItem: React.FC<{
@@ -68,6 +67,10 @@ const ParentProfileScreen = () => {
       { text: 'Cancel', style: 'cancel' },
       { text: 'Logout', style: 'destructive', onPress: logout },
     ]);
+  };
+
+  const handleComingSoon = (feature: string) => {
+    Alert.alert('Coming Soon', `${feature} will be available in a future update.`);
   };
 
   const initials = (user?.name || 'P').split(' ').map((n: string) => n[0]).join('').toUpperCase();
@@ -125,9 +128,9 @@ const ParentProfileScreen = () => {
         {/* ── ACCOUNT ───────────────────────────────────────────────────── */}
         <Text style={s.sectionLabel}>Account</Text>
         <GlassCard style={s.sectionCard}>
-          <MenuItem icon="person-outline"    label="Edit Profile"      iconBg={BRAND.tealDim}   iconColor={BRAND.teal}   divider />
-          <MenuItem icon="lock-closed-outline" label="Change Password"  iconBg={BRAND.blueDim}   iconColor={BRAND.blue}   divider />
-          <MenuItem icon="notifications-outline" label="Notifications"  iconBg={BRAND.yellowDim} iconColor={BRAND.yellow} />
+          <MenuItem icon="person-outline"       label="Edit Profile"   iconBg={BRAND.tealDim}   iconColor={BRAND.teal}   onPress={() => handleComingSoon('Edit Profile')}   divider />
+          <MenuItem icon="lock-closed-outline"  label="Change Password" iconBg={BRAND.blueDim}   iconColor={BRAND.blue}   onPress={() => handleComingSoon('Change Password')} divider />
+          <MenuItem icon="notifications-outline" label="Notifications"  iconBg={BRAND.yellowDim} iconColor={BRAND.yellow} onPress={() => handleComingSoon('Notifications')} />
         </GlassCard>
 
         {/* ── CHILDREN ──────────────────────────────────────────────────── */}
@@ -141,16 +144,22 @@ const ParentProfileScreen = () => {
             icon="school-outline"   label="Academic Reports"    iconBg={BRAND.redDim}    iconColor={BRAND.red}
             onPress={() => navigation.navigate('Marks' as never)} divider
           />
-          <MenuItem icon="chatbubble-outline" label="Parent-Teacher Chat" iconBg={BRAND.yellowDim} iconColor={BRAND.yellow} divider />
-          <MenuItem icon="calendar-outline"   label="School Calendar"    iconBg={BRAND.blueDim}   iconColor={BRAND.blue} />
+          <MenuItem icon="chatbubble-outline" label="Parent-Teacher Chat" iconBg={BRAND.yellowDim} iconColor={BRAND.yellow} onPress={() => handleComingSoon('Parent-Teacher Chat')} divider />
+          <MenuItem icon="calendar-outline"   label="School Calendar"   iconBg={BRAND.blueDim}   iconColor={BRAND.blue}   onPress={() => handleComingSoon('School Calendar')} />
         </GlassCard>
 
         {/* ── SUPPORT ───────────────────────────────────────────────────── */}
         <Text style={s.sectionLabel}>Support</Text>
         <GlassCard style={s.sectionCard}>
-          <MenuItem icon="help-circle-outline" label="Help Center"     iconBg={BRAND.yellowDim} iconColor={BRAND.yellow} divider />
-          <MenuItem icon="chatbubble-outline"  label="Contact School"  iconBg={BRAND.tealDim}   iconColor={BRAND.teal}   divider />
-          <MenuItem icon="information-circle"  label="About"           iconBg={BRAND.blueDim}   iconColor={BRAND.blue} />
+          <MenuItem icon="help-circle-outline" label="Help Center"    iconBg={BRAND.yellowDim} iconColor={BRAND.yellow} onPress={() => handleComingSoon('Help Center')}   divider />
+          <MenuItem icon="chatbubble-outline"  label="Contact School" iconBg={BRAND.tealDim}   iconColor={BRAND.teal}   onPress={() => handleComingSoon('Contact School')} divider />
+          <MenuItem
+            icon="information-circle"
+            label="About"
+            iconBg={BRAND.blueDim}
+            iconColor={BRAND.blue}
+            onPress={() => Alert.alert('About', 'AMSA Learning Management System\nParent Portal v1.0\n\n© 2025 AMSA')}
+          />
         </GlassCard>
 
         {/* ── LOGOUT ────────────────────────────────────────────────────── */}

@@ -15,8 +15,18 @@ import BouncingDotsLoader from '../../components/BouncingDotsLoader';
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
 import { BRAND } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
-
-
+
+
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const formatActivityTime = (dateStr: string): string => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  return date.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+};
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 interface ParentStats {
@@ -38,42 +48,31 @@ const ParentDashboardScreen = () => {
 
   const notificationListener = useRef<Notifications.Subscription | null>(null);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (isRefreshing = false) => {
     try {
-      const [childrenData, marksData] = await Promise.all([
+      const [childrenData, marksData, attendanceData] = await Promise.all([
         parentService.getChildren(),
         parentService.getChildrenMarks(),
+        parentService.getChildrenAttendance(),
       ]);
 
       const childrenCount = childrenData.children?.length || 0;
       const allMarks = marksData.marks || [];
+      const attendanceRate = attendanceData.rate ?? 0;
 
-      setStats({ childrenCount, totalMarks: allMarks.length, averageAttendance: 85 });
+      setStats({ childrenCount, totalMarks: allMarks.length, averageAttendance: attendanceRate });
 
-      const activity: any[] = [];
-      if (allMarks.length > 0) {
-        const recentMark = allMarks[0];
-        activity.push({
-          type: 'mark',
-          title: `${recentMark.student.user.name} - ${recentMark.subject} Test`,
-          time: 'Recently',
-          icon: 'school',
-          color: BRAND.teal,
-        });
-      }
-      if (childrenData.children?.length > 0) {
-        activity.push({
-          type: 'child',
-          title: `${childrenData.children[0].user.name} attendance updated`,
-          time: 'Today',
-          icon: 'person',
-          color: BRAND.red,
-        });
-      }
+      const activity: any[] = allMarks.slice(0, 3).map((mark: any) => ({
+        type: 'mark',
+        title: `${mark.student.user.name} — ${mark.subject}`,
+        time: formatActivityTime(mark.createdAt || mark.date),
+        icon: 'school',
+        color: BRAND.teal,
+      }));
       setRecentActivity(activity);
 
     } catch (error: any) {
-      if (loading) Alert.alert('Error', 'Failed to load dashboard data');
+      if (!isRefreshing) Alert.alert('Error', 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
@@ -88,15 +87,15 @@ const ParentDashboardScreen = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadDashboardData();
+    await loadDashboardData(true);
     setRefreshing(false);
   };
 
   const quickActions = [
-    { icon: 'people',          title: 'My Children', color: BRAND.teal,   dim: BRAND.tealDim,   onPress: () => navigation.navigate('Children' as never) },
-    { icon: 'school',          title: 'View Marks',  color: BRAND.red,    dim: BRAND.redDim,    onPress: () => navigation.navigate('Marks' as never) },
-    { icon: 'notifications',   title: 'Alerts',      color: BRAND.yellow, dim: BRAND.yellowDim, onPress: () => {} },
-    { icon: 'chatbubble',      title: 'Messages',    color: BRAND.blue,   dim: BRAND.blueDim,   onPress: () => {} },
+    { icon: 'people',        title: 'My Children', color: BRAND.teal,   dim: BRAND.tealDim,   onPress: () => navigation.navigate('Children' as never) },
+    { icon: 'school',        title: 'View Marks',  color: BRAND.red,    dim: BRAND.redDim,    onPress: () => navigation.navigate('Marks' as never) },
+    { icon: 'notifications', title: 'Alerts',      color: BRAND.yellow, dim: BRAND.yellowDim, onPress: () => Alert.alert('Coming Soon', 'Alerts will be available in a future update.') },
+    { icon: 'chatbubble',    title: 'Messages',    color: BRAND.blue,   dim: BRAND.blueDim,   onPress: () => Alert.alert('Coming Soon', 'Messaging will be available in a future update.') },
   ];
 
   if (loading) {
@@ -136,7 +135,10 @@ const ParentDashboardScreen = () => {
             <Text style={s.welcome}>Welcome back,</Text>
             <Text style={s.userName}>{user?.name}!</Text>
           </View>
-          <TouchableOpacity style={s.notifBtn}>
+          <TouchableOpacity
+            style={s.notifBtn}
+            onPress={() => Alert.alert('Notifications', 'No new notifications at this time.')}
+          >
             <Icon name="notifications-outline" size={22} color={BRAND.textPrimary} />
           </TouchableOpacity>
         </View>

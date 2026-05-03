@@ -45,4 +45,9 @@ export const parentService = {
     const response = await api.get('/parents/me');
     return response.data;
   },
+
+  async getChildrenAttendance(): Promise<{ rate: number; total: number; present: number }> {
+    const response = await api.get('/parents/me/attendance');
+    return response.data;
+  },
 };

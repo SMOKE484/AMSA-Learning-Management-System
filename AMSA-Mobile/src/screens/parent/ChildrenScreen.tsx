@@ -2,18 +2,18 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Platform,
+  RefreshControl, Alert,
 } from 'react-native';
 import { parentService } from '../../services/parent';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 import { Icon } from '../../components/Icon';
-import { BlurView } from 'expo-blur';
 import BouncingDotsLoader from '../../components/BouncingDotsLoader';
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
 import { BRAND } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
-
-
+
+
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 interface Child {
@@ -31,6 +31,7 @@ const ParentChildrenScreen = () => {
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { logout } = useAuth();
+  const navigation = useNavigation();
 
   const loadChildren = async () => {
     try {
@@ -61,12 +62,6 @@ const ParentChildrenScreen = () => {
   }
 
   const BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_OFFSET + 16;
-
-  const childActions = [
-    { icon: 'school-outline',     label: 'View Marks',  color: BRAND.teal   },
-    { icon: 'calendar-outline',   label: 'Attendance',  color: BRAND.red    },
-    { icon: 'chatbubble-outline', label: 'Message',     color: BRAND.yellow },
-  ];
 
   return (
     <View style={s.container}>
@@ -100,6 +95,26 @@ const ParentChildrenScreen = () => {
       >
         {children.length > 0 ? children.map((child) => {
           const initials = child.user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+          const childActions = [
+            {
+              icon: 'school-outline',
+              label: 'View Marks',
+              color: BRAND.teal,
+              onPress: () => (navigation as any).navigate('Marks', { childId: child._id }),
+            },
+            {
+              icon: 'calendar-outline',
+              label: 'Attendance',
+              color: BRAND.red,
+              onPress: () => Alert.alert('Coming Soon', 'Attendance details will be available in a future update.'),
+            },
+            {
+              icon: 'chatbubble-outline',
+              label: 'Message',
+              color: BRAND.yellow,
+              onPress: () => Alert.alert('Coming Soon', 'Messaging will be available in a future update.'),
+            },
+          ];
           return (
             <GlassCard key={child._id} accentColor={BRAND.teal} style={s.childCard}>
               {/* Child header */}
@@ -131,7 +146,11 @@ const ParentChildrenScreen = () => {
               {/* Actions */}
               <View style={s.actionsRow}>
                 {childActions.map((action, idx) => (
-                  <TouchableOpacity key={idx} style={[s.actionBtn, { borderColor: action.color + '44', backgroundColor: action.color + '15' }]}>
+                  <TouchableOpacity
+                    key={idx}
+                    onPress={action.onPress}
+                    style={[s.actionBtn, { borderColor: action.color + '44', backgroundColor: action.color + '15' }]}
+                  >
                     <Icon name={action.icon as any} size={15} color={action.color} />
                     <Text style={[s.actionBtnText, { color: action.color }]}>{action.label}</Text>
                   </TouchableOpacity>

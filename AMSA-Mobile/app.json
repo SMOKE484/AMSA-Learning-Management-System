@@ -4,7 +4,7 @@
     "slug": "AMSA-Mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/amsaIcon.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -23,7 +23,7 @@
       "package": "com.vhulenda.AMSAMobile",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/amsaLogo.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -40,7 +40,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/amsaIcon.png",
+          "icon": "./assets/icon.png",
           "color": "#ffffff"
         }
       ]

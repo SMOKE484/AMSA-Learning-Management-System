@@ -2,18 +2,18 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, RefreshControl, Platform,
+  Alert, RefreshControl,
 } from 'react-native';
 import { parentService } from '../../services/parent';
 import { useAuth } from '../../context/AuthContext';
+import { useRoute } from '@react-navigation/native';
 import { Icon } from '../../components/Icon';
-import { BlurView } from 'expo-blur';
 import BouncingDotsLoader from '../../components/BouncingDotsLoader';
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
 import { BRAND } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
 import { calculateGrade, getGradeColor } from '../../utils/formatting';
-
+
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 interface ChildMark {
@@ -36,6 +36,14 @@ const ParentMarksScreen = () => {
   const [refreshing, setRefreshing]     = useState(false);
   const [selectedChild, setSelectedChild] = useState<string>('all');
   const { logout } = useAuth();
+  const route = useRoute<any>();
+
+  // Pre-select a child when navigated here from the Children screen
+  useEffect(() => {
+    if (route.params?.childId) {
+      setSelectedChild(route.params.childId);
+    }
+  }, [route.params?.childId]);
 
   const loadMarks = async () => {
     try {
@@ -205,7 +213,7 @@ const ParentMarksScreen = () => {
                               })}
                             </Text>
                           </View>
-                          <Text style={[s.testMark, { color: getGradeColor(calculateGrade(mark.score / mark.total * 100)) }]}>
+                          <Text style={[s.testMark, { color: getGradeColor(mark.grade || calculateGrade(mark.score / mark.total * 100)) }]}>
                             {Math.round((mark.score / mark.total) * 100)}%
                           </Text>
                         </View>
