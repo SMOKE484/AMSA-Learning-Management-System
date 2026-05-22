@@ -107,6 +107,83 @@ app.get("/", (req, res) => {
   res.send("Academic Management System API is running...");
 });
 
+app.get("/privacy-policy", (req, res) => {
+  res.setHeader("Content-Type", "text/html");
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy – AMSA LMS</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 24px 16px; color: #222; line-height: 1.7; }
+    h1 { color: #d0421b; }
+    h2 { color: #1a5276; margin-top: 32px; }
+    p, li { font-size: 15px; }
+    ul { padding-left: 20px; }
+    footer { margin-top: 48px; font-size: 13px; color: #666; border-top: 1px solid #ddd; padding-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Privacy Policy</h1>
+  <p><strong>App name:</strong> AMSA LMS<br/>
+     <strong>Operated by:</strong> Alusani Maths &amp; Science Academy<br/>
+     <strong>Last updated:</strong> ${new Date().toLocaleDateString("en-ZA", { year: "numeric", month: "long", day: "numeric" })}</p>
+
+  <h2>1. Introduction</h2>
+  <p>Alusani Maths &amp; Science Academy ("AMSA", "we", "our") operates the AMSA LMS mobile application. This Privacy Policy explains what personal information we collect, how we use it, and your rights regarding that information.</p>
+
+  <h2>2. Information We Collect</h2>
+  <ul>
+    <li><strong>Account information:</strong> Full name, email address, role (student, tutor, parent, admin), and a hashed password.</li>
+    <li><strong>Academic records:</strong> Grades, assignments, class schedules, and timetable data.</li>
+    <li><strong>Attendance data:</strong> Check-in/check-out timestamps and, where geo-fencing is enabled, approximate GPS location at the time of check-in.</li>
+    <li><strong>Device &amp; notification tokens:</strong> Push notification tokens used solely to deliver in-app notifications.</li>
+    <li><strong>Usage data:</strong> Standard server logs (IP address, request timestamps) retained for security and debugging purposes.</li>
+  </ul>
+
+  <h2>3. How We Use Your Information</h2>
+  <ul>
+    <li>To provide and maintain the LMS platform (authentication, grade tracking, scheduling).</li>
+    <li>To send push notifications about class reminders, attendance alerts, and academic updates.</li>
+    <li>To verify on-site attendance using geo-fencing where enabled by the school.</li>
+    <li>To generate reports for school administrators and parents.</li>
+    <li>To improve app performance and fix bugs.</li>
+  </ul>
+
+  <h2>4. Data Sharing</h2>
+  <p>We do <strong>not</strong> sell, rent, or trade personal information. Data is shared only as follows:</p>
+  <ul>
+    <li><strong>Within the school:</strong> Administrators, tutors, and parents can access data relevant to their role.</li>
+    <li><strong>Service providers:</strong> MongoDB Atlas (database hosting), Railway (server hosting), and Expo/OneSignal (push notifications). These providers process data solely to deliver our services.</li>
+    <li><strong>Legal requirements:</strong> If required by law or to protect the rights and safety of users.</li>
+  </ul>
+
+  <h2>5. Data Retention</h2>
+  <p>Account and academic data is retained for the duration of a student's enrolment plus one academic year after graduation or withdrawal. You may request earlier deletion by contacting us.</p>
+
+  <h2>6. Security</h2>
+  <p>We use industry-standard measures including HTTPS/TLS in transit, bcrypt password hashing, and JWT authentication. No method of transmission or storage is 100% secure, and we cannot guarantee absolute security.</p>
+
+  <h2>7. Children's Privacy</h2>
+  <p>The app is used in an educational setting and may be used by students under 18. Accounts for minors are created and managed by the school or a parent/guardian. We do not knowingly collect data directly from children without parental or guardian consent facilitated through the school.</p>
+
+  <h2>8. Your Rights</h2>
+  <p>You have the right to access, correct, or request deletion of your personal data. To exercise these rights, contact us at the address below. We will respond within 30 days.</p>
+
+  <h2>9. Changes to This Policy</h2>
+  <p>We may update this policy from time to time. The updated version will be posted at this URL with a revised "Last updated" date. Continued use of the app after changes constitutes acceptance.</p>
+
+  <h2>10. Contact Us</h2>
+  <p>If you have questions about this Privacy Policy, please contact:<br/>
+     <strong>Alusani Maths &amp; Science Academy</strong><br/>
+     Email: <a href="mailto:vhulendamashamba4@gmail.com">vhulendamashamba4@gmail.com</a></p>
+
+  <footer>© ${new Date().getFullYear()} Alusani Maths &amp; Science Academy. All rights reserved.</footer>
+</body>
+</html>`);
+});
+
 app.get("/api/health", async (req, res) => {
   const redisStatus = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN 
     ? "Configured" 
