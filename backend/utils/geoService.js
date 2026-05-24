@@ -1,4 +1,4 @@
-import { getDistance } from 'geolib';
+import { getDistance, isPointInPolygon } from 'geolib';
 
 export class GeoService {
   /**
@@ -70,6 +70,26 @@ export class GeoService {
    */
   static validateLocationAccuracy(accuracy, maxAccuracy = 100) {
     return typeof accuracy === 'number' && accuracy >= 0 && accuracy <= maxAccuracy;
+  }
+
+  /**
+   * Check if a point is inside a drawn polygon boundary
+   * @param {number} userLat
+   * @param {number} userLng
+   * @param {Array<{lat: number, lng: number}>} polygon - array of boundary points
+   * @returns {boolean}
+   */
+  static isWithinPolygon(userLat, userLng, polygon) {
+    if (!polygon || polygon.length < 3) return false;
+    try {
+      return isPointInPolygon(
+        { latitude: userLat, longitude: userLng },
+        polygon.map(p => ({ latitude: p.lat, longitude: p.lng }))
+      );
+    } catch (error) {
+      console.error('Polygon check error:', error);
+      return false;
+    }
   }
 
   /**

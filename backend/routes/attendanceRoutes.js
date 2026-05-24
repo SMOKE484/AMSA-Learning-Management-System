@@ -1,10 +1,11 @@
 import express from 'express';
 import { checkIn, checkOut, getClassAttendance, getAttendanceHistory, manualOverride, getClassReport,getAllAttendance } from '../controllers/attendanceController.js';
 import { authenticate, authorize } from '../middleware/authMiddleware.js';
+import { validateGeoLocation } from '../middleware/geoValidation.js';
 
 const router = express.Router();
 
-router.post('/classes/:classId/check-in', authenticate, authorize(['student']), checkIn);
+router.post('/classes/:classId/check-in', authenticate, authorize(['student']), validateGeoLocation, checkIn);
 router.post('/classes/:classId/check-out', authenticate, authorize(['student']), checkOut);
 router.get('/classes/:classId/attendance', authenticate, authorize(['student']), getClassAttendance);
 router.get('/my-attendance', authenticate, authorize(['student']), getAttendanceHistory);

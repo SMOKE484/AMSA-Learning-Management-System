@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
+import { authenticate, authorize } from "./middleware/authMiddleware.js";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
@@ -44,7 +45,7 @@ mongoose
       });
 
     try {
-      const SchoolConfig = (await import('./models/SchoolConfig.js')).default;
+      const SchoolConfig = (await import('./models/schoolConfig.js')).default;
       const schoolConfig = await SchoolConfig.getConfig();
       console.log('School configuration loaded');
     } catch (error) {
@@ -252,7 +253,7 @@ app.get("/api/scheduling-test", async (req, res) => {
   try {
     const ClassSchedule = (await import('./models/classSchedule.js')).default;
     const Attendance = (await import('./models/Attendance.js')).default;
-    const SchoolConfig = (await import('./models/SchoolConfig.js')).default;
+    const SchoolConfig = (await import('./models/schoolConfig.js')).default;
 
     const schoolConfig = await SchoolConfig.getConfig();
     
@@ -362,22 +363,57 @@ app.get("/api/cache-test", async (req, res) => {
 
 app.get("/api/school-config", async (req, res) => {
   try {
-    const SchoolConfig = (await import('./models/SchoolConfig.js')).default;
+    const SchoolConfig = (await import('./models/schoolConfig.js')).default;
     const config = await SchoolConfig.getConfig();
-    
     res.json({
       school: {
         name: config.name,
         coordinates: config.coordinates,
         allowedRadius: config.allowedRadius,
         geoFencingEnabled: config.geoFencingEnabled,
-        address: config.fullAddress
+        requireLocationAccuracy: config.requireLocationAccuracy,
+        maxLocationAccuracy: config.maxLocationAccuracy,
+        geofencePolygon: config.geofencePolygon || [],
+        address: config.address || {},
+        defaultCheckInBuffer: config.defaultCheckInBuffer,
+        defaultCheckOutBuffer: config.defaultCheckOutBuffer,
+        autoMarkAbsentEnabled: config.autoMarkAbsentEnabled,
+        allowedIPs: config.allowedIPs || []
       }
     });
   } catch (error) {
-    res.status(500).json({
-      message: 'Failed to fetch school configuration',
-      error: error.message
-    });
+    res.status(500).json({ message: 'Failed to fetch school configuration', error: error.message });
+  }
+});
+
+app.put("/api/admin/school-config", authenticate, authorize(['admin']), async (req, res) => {
+  try {
+    const SchoolConfig = (await import('./models/schoolConfig.js')).default;
+    const config = await SchoolConfig.getConfig();
+    const {
+      name, coordinates, allowedRadius, geoFencingEnabled,
+      requireLocationAccuracy, maxLocationAccuracy, geofencePolygon,
+      address, defaultCheckInBuffer, defaultCheckOutBuffer, autoMarkAbsentEnabled,
+      allowedIPs
+    } = req.body;
+
+    if (name !== undefined) config.name = name;
+    if (coordinates?.lat != null) config.coordinates.lat = coordinates.lat;
+    if (coordinates?.lng != null) config.coordinates.lng = coordinates.lng;
+    if (allowedRadius != null) config.allowedRadius = allowedRadius;
+    if (geoFencingEnabled != null) config.geoFencingEnabled = geoFencingEnabled;
+    if (requireLocationAccuracy != null) config.requireLocationAccuracy = requireLocationAccuracy;
+    if (maxLocationAccuracy != null) config.maxLocationAccuracy = maxLocationAccuracy;
+    if (geofencePolygon !== undefined) config.geofencePolygon = geofencePolygon;
+    if (address) config.address = { ...config.address.toObject?.() || config.address, ...address };
+    if (defaultCheckInBuffer != null) config.defaultCheckInBuffer = defaultCheckInBuffer;
+    if (defaultCheckOutBuffer != null) config.defaultCheckOutBuffer = defaultCheckOutBuffer;
+    if (autoMarkAbsentEnabled != null) config.autoMarkAbsentEnabled = autoMarkAbsentEnabled;
+    if (allowedIPs !== undefined) config.allowedIPs = allowedIPs;
+
+    await config.save();
+    res.json({ success: true, message: 'School configuration updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update configuration', error: error.message });
   }
 });

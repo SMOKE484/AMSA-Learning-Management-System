@@ -6,7 +6,9 @@ import SchoolConfig from '../models/schoolConfig.js';
  */
 export const validateGeoLocation = async (req, res, next) => {
   try {
-    const { latitude, longitude, accuracy } = req.body;
+    // Support both nested { location: { latitude, longitude } } and flat body
+    const loc = req.body.location || req.body;
+    const { latitude, longitude, accuracy } = loc;
 
     // Check if location data is provided
     if (!latitude || !longitude) {
@@ -24,33 +26,36 @@ export const validateGeoLocation = async (req, res, next) => {
 
     // Get school configuration
     const schoolConfig = await SchoolConfig.getConfig();
-    
+
     // Skip geo-validation if disabled
     if (!schoolConfig.geoFencingEnabled) {
       req.locationValidated = true;
       return next();
     }
 
-    // Check if within school radius
-    const isWithinRadius = GeoService.isWithinSchoolRadius(
-      latitude,
-      longitude,
-      schoolConfig.coordinates.lat,
-      schoolConfig.coordinates.lng,
-      schoolConfig.allowedRadius
-    );
+    // Prefer polygon boundary if one has been drawn; fall back to radius circle
+    const hasPolygon = schoolConfig.geofencePolygon && schoolConfig.geofencePolygon.length >= 3;
+    const isWithin = hasPolygon
+      ? GeoService.isWithinPolygon(latitude, longitude, schoolConfig.geofencePolygon)
+      : GeoService.isWithinSchoolRadius(
+          latitude, longitude,
+          schoolConfig.coordinates.lat, schoolConfig.coordinates.lng,
+          schoolConfig.allowedRadius
+        );
 
-    if (!isWithinRadius) {
+    if (!isWithin) {
       return res.status(403).json({
         message: "You must be within school premises to perform this action",
-        details: {
-          requiredRadius: `${schoolConfig.allowedRadius} meters`,
-          schoolLocation: {
-            lat: schoolConfig.coordinates.lat,
-            lng: schoolConfig.coordinates.lng
-          },
-          yourLocation: { latitude, longitude }
-        }
+        details: hasPolygon
+          ? { yourLocation: { latitude, longitude } }
+          : {
+              requiredRadius: `${schoolConfig.allowedRadius} meters`,
+              schoolLocation: {
+                lat: schoolConfig.coordinates.lat,
+                lng: schoolConfig.coordinates.lng
+              },
+              yourLocation: { latitude, longitude }
+            }
       });
     }
 

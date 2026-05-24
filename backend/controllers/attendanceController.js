@@ -2,6 +2,7 @@ import Attendance from "../models/attendance.js";
 import ClassSchedule from "../models/classSchedule.js";
 import Student from "../models/student.js";
 import Tutor from "../models/tutor.js";
+import SchoolConfig from "../models/schoolConfig.js";
 import { NotificationService } from "../utils/notificationService.js";
 
 export const checkIn = async (req, res) => {
@@ -10,16 +11,19 @@ export const checkIn = async (req, res) => {
     const { deviceId, location } = req.body; 
 
     //IP VALIDATION
-    const clientIp = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    const ALLOWED_IP = process.env.SCHOOL_PUBLIC_IP; 
-    const normalizedClient = clientIp ? clientIp.replace('::ffff:', '') : '';
-    const normalizedAllowed = ALLOWED_IP ? ALLOWED_IP.replace('::ffff:', '') : '';
+    const schoolConfig = await SchoolConfig.getConfig();
+    const allowedIPs = schoolConfig.allowedIPs ?? [];
+    const clientIp = req.ip || req.headers['x-forwarded-for']?.split(',')[0] || req.connection.remoteAddress;
+    const normalizedClient = (clientIp || '').replace('::ffff:', '').trim();
 
-    if (normalizedAllowed && normalizedClient !== normalizedAllowed) {
-      return res.status(403).json({ 
-        success: false,
-        message: "Security Alert: You must be connected to the School WiFi.",
-      });
+    if (allowedIPs.length > 0) {
+      const isAllowed = allowedIPs.some(ip => ip.replace('::ffff:', '').trim() === normalizedClient);
+      if (!isAllowed) {
+        return res.status(403).json({
+          success: false,
+          message: "Security Alert: You must be connected to the School WiFi.",
+        });
+      }
     }
 
     //STANDARD CHECKS

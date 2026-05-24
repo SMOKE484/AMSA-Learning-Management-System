@@ -36,10 +36,16 @@ const schoolConfigSchema = new mongoose.Schema({
     max: 1000 
   },
 
+  // Drawn polygon boundary (array of lat/lng points)
+  geofencePolygon: [{
+    lat: { type: Number, required: true },
+    lng: { type: Number, required: true }
+  }],
+
   // Geo-fencing settings
-  geoFencingEnabled: { 
-    type: Boolean, 
-    default: true 
+  geoFencingEnabled: {
+    type: Boolean,
+    default: true
   },
   requireLocationAccuracy: {
     type: Boolean,
@@ -77,6 +83,9 @@ const schoolConfigSchema = new mongoose.Schema({
     start: { type: String, default: "07:00" }, // HH:MM format
     end: { type: String, default: "17:00" }    // HH:MM format
   },
+
+  // Allowed school WiFi IP addresses (empty = IP check disabled)
+  allowedIPs: [{ type: String, trim: true }],
 
   // Attendance settings
   defaultCheckInBuffer: {
