@@ -305,12 +305,143 @@ export const updateMark = async (req, res) => {
     const { score, total } = req.body;
 
     const mark = await Mark.findByIdAndUpdate(
-      markId, 
+      markId,
       { score, total },
       { new: true }
     );
-    
+
     res.json({ message: "Mark updated", mark });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Update student user + profile
+export const updateStudent = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, email, grade, subjects } = req.body;
+
+    if (grade && !PREDEFINED_GRADES.includes(Number(grade))) {
+      return res.status(400).json({ message: `Invalid grade. Must be one of: ${PREDEFINED_GRADES.join(', ')}` });
+    }
+
+    if (subjects) {
+      const invalid = subjects.filter(s => !PREDEFINED_SUBJECTS.includes(s));
+      if (invalid.length > 0) {
+        return res.status(400).json({ message: `Invalid subjects: ${invalid.join(', ')}` });
+      }
+    }
+
+    if (email) {
+      const existing = await User.findOne({ email, _id: { $ne: userId } });
+      if (existing) return res.status(400).json({ message: "Email already in use" });
+    }
+
+    const userUpdates = {};
+    if (name) userUpdates.name = name;
+    if (email) userUpdates.email = email;
+
+    const updatedUser = await User.findByIdAndUpdate(userId, userUpdates, { new: true }).select('-password');
+    if (!updatedUser) return res.status(404).json({ message: "User not found" });
+
+    const profileUpdates = {};
+    if (grade) profileUpdates.grade = Number(grade);
+    if (subjects) profileUpdates.subjects = subjects;
+
+    const updatedStudent = await Student.findOneAndUpdate(
+      { user: userId },
+      profileUpdates,
+      { new: true }
+    ).populate('user', 'name email');
+
+    res.json({ message: "Student updated successfully", student: updatedStudent });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Update parent user
+export const updateParent = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, email } = req.body;
+
+    if (email) {
+      const existing = await User.findOne({ email, _id: { $ne: userId } });
+      if (existing) return res.status(400).json({ message: "Email already in use" });
+    }
+
+    const updates = {};
+    if (name) updates.name = name;
+    if (email) updates.email = email;
+
+    const updated = await User.findByIdAndUpdate(userId, updates, { new: true }).select('-password');
+    if (!updated) return res.status(404).json({ message: "User not found" });
+
+    res.json({ message: "Parent updated successfully", user: updated });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// List all admin users
+export const listAdmins = async (req, res) => {
+  try {
+    const admins = await User.find({ role: 'admin' }).select('-password');
+    res.json({ admins });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Create a new admin user
+export const createAdmin = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(400).json({ message: "User already exists" });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({ name, email, password: hashedPassword, role: 'admin' });
+
+    const result = user.toObject();
+    delete result.password;
+    res.status(201).json({ message: "Admin created successfully", user: result });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Update an admin user
+export const updateAdmin = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, email } = req.body;
+
+    if (email) {
+      const existing = await User.findOne({ email, _id: { $ne: userId } });
+      if (existing) return res.status(400).json({ message: "Email already in use" });
+    }
+
+    const updates = {};
+    if (name) updates.name = name;
+    if (email) updates.email = email;
+
+    const updated = await User.findOneAndUpdate(
+      { _id: userId, role: 'admin' },
+      updates,
+      { new: true }
+    ).select('-password');
+
+    if (!updated) return res.status(404).json({ message: "Admin not found" });
+
+    res.json({ message: "Admin updated successfully", user: updated });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
