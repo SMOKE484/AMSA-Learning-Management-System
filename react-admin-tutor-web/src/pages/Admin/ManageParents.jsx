@@ -7,6 +7,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import { format } from 'date-fns';
 import api from '../../services/apiService';
 import { useSnackbar } from '../../context/SnackbarContext';
@@ -28,6 +29,11 @@ const ManageParents = () => {
   const [linkFormData, setLinkFormData] = useState({
     parentId: ''
   });
+
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [selectedParent, setSelectedParent] = useState(null);
+  const [editFormData, setEditFormData] = useState({ name: '', email: '' });
 
   const { showSnackbar } = useSnackbar();
 
@@ -145,6 +151,42 @@ const ManageParents = () => {
     setLinkDialogOpen(false);
     setSelectedStudent(null);
     setLinkFormData({ parentId: '' });
+  };
+
+  const openEditDialog = (parent) => {
+    setSelectedParent(parent);
+    setEditFormData({ name: parent.name, email: parent.email });
+    setEditDialogOpen(true);
+  };
+
+  const closeEditDialog = () => {
+    setEditDialogOpen(false);
+    setSelectedParent(null);
+  };
+
+  const handleEditChange = (e) => {
+    setEditFormData({ ...editFormData, [e.target.name]: e.target.value });
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editFormData.name || !editFormData.email) {
+      showSnackbar('Name and email are required.', 'error');
+      return;
+    }
+    try {
+      setEditLoading(true);
+      await api.put(`/admin/parents/${selectedParent._id}`, {
+        name: editFormData.name.trim(),
+        email: editFormData.email.trim()
+      });
+      showSnackbar('Parent updated successfully!', 'success');
+      closeEditDialog();
+      await fetchData();
+    } catch (err) {
+      showSnackbar(err.response?.data?.message || 'Failed to update parent.', 'error');
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   // Helper function to count linked students for a parent
@@ -281,6 +323,15 @@ const ManageParents = () => {
                   </TableCell>
                   <TableCell>
                     <IconButton
+                      color="primary"
+                      size="small"
+                      title="Edit Parent"
+                      onClick={() => openEditDialog(parent)}
+                      sx={{ mr: 0.5 }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
                       color="error"
                       size="small"
                       title="Delete Parent"
@@ -401,9 +452,54 @@ const ManageParents = () => {
         </TableContainer>
       )}
 
+      {/* Edit Parent Dialog */}
+      <Dialog open={editDialogOpen} onClose={closeEditDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 600, color: '#1e293b' }}>Edit Parent</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                name="name"
+                label="Full Name"
+                value={editFormData.name}
+                onChange={handleEditChange}
+                fullWidth
+                required
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                name="email"
+                label="Email"
+                type="email"
+                value={editFormData.email}
+                onChange={handleEditChange}
+                fullWidth
+                required
+                variant="outlined"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={closeEditDialog} sx={{ fontWeight: 600, color: '#64748b' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleEditSubmit}
+            variant="contained"
+            disabled={editLoading}
+            sx={{ fontWeight: 600, borderRadius: 2 }}
+          >
+            {editLoading ? <CircularProgress size={22} /> : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Link Parent Dialog */}
-      <Dialog 
-        open={linkDialogOpen} 
+      <Dialog
+        open={linkDialogOpen}
         onClose={closeLinkDialog}
         maxWidth="sm"
         fullWidth

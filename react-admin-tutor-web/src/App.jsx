@@ -18,6 +18,7 @@ import ManageSchedules from './pages/Admin/ManageSchedules'; // NEW
 import ClassAttendance from './pages/Admin/ClassAttendance'; // NEW
 import SchoolConfig from './pages/Admin/SchoolConfig'; // NEW
 import ManageMarks from './pages/Admin/ManageMarks';
+import ManageAdmins from './pages/Admin/ManageAdmins';
 
 // Tutor Pages
 import TutorDashboard from './pages/Tutor/TutorDashboard';
@@ -43,6 +44,7 @@ function App() {
         <Route path="/admin/tutors" element={<ManageTutors />} />
         <Route path="/admin/parents" element={<ManageParents />} />
         <Route path="/admin/marks" element={<ManageMarks />} />
+        <Route path="/admin/admins" element={<ManageAdmins />} />
         
         {/* Class Scheduling & Attendance Routes */}
         <Route path="/admin/schedules" element={<ManageSchedules />} />

@@ -3,9 +3,10 @@ import {
   Box, Typography, TextField, Button, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, CircularProgress,
   Grid, FormControl, InputLabel, Select, MenuItem, Chip, OutlinedInput,
-  IconButton
+  IconButton, Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import { format } from 'date-fns';
 import api from '../../services/apiService';
 import { academicService } from '../../services/academicService';
@@ -25,6 +26,16 @@ const ManageStudents = () => {
     grade: '',
     subjects: [],
     parentIds: ''
+  });
+
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    email: '',
+    grade: '',
+    subjects: []
   });
 
   const { showSnackbar } = useSnackbar();
@@ -119,6 +130,55 @@ const handleSubmit = async (e) => {
       setStudents(studentsRes.data.students);
     } catch (err) {
       showSnackbar(err.response?.data?.message || 'Failed to delete student.', 'error');
+    }
+  };
+
+  const openEditDialog = (student) => {
+    setSelectedStudent(student);
+    setEditFormData({
+      name: student.user?.name || '',
+      email: student.user?.email || '',
+      grade: student.grade?.toString() || '',
+      subjects: student.subjects || []
+    });
+    setEditDialogOpen(true);
+  };
+
+  const closeEditDialog = () => {
+    setEditDialogOpen(false);
+    setSelectedStudent(null);
+  };
+
+  const handleEditChange = (e) => {
+    setEditFormData({ ...editFormData, [e.target.name]: e.target.value });
+  };
+
+  const handleEditSubjectsChange = (event) => {
+    const { target: { value } } = event;
+    setEditFormData({ ...editFormData, subjects: typeof value === 'string' ? value.split(',') : value });
+  };
+
+  const handleEditSubmit = async () => {
+    if (!editFormData.name || !editFormData.email) {
+      showSnackbar('Name and email are required.', 'error');
+      return;
+    }
+    try {
+      setEditLoading(true);
+      await api.put(`/admin/students/${selectedStudent.user._id}`, {
+        name: editFormData.name.trim(),
+        email: editFormData.email.trim(),
+        grade: parseInt(editFormData.grade),
+        subjects: editFormData.subjects
+      });
+      showSnackbar('Student updated successfully!', 'success');
+      closeEditDialog();
+      const res = await api.get('/admin/students');
+      setStudents(res.data.students);
+    } catch (err) {
+      showSnackbar(err.response?.data?.message || 'Failed to update student.', 'error');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -335,6 +395,15 @@ const handleSubmit = async (e) => {
                   </TableCell>
                   <TableCell>
                     <IconButton
+                      color="primary"
+                      size="small"
+                      title="Edit Student"
+                      onClick={() => openEditDialog(student)}
+                      sx={{ mr: 0.5 }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
                       color="error"
                       size="small"
                       title="Delete Student"
@@ -349,6 +418,92 @@ const handleSubmit = async (e) => {
           </Table>
         </TableContainer>
       )}
+
+      {/* Edit Student Dialog */}
+      <Dialog open={editDialogOpen} onClose={closeEditDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 600, color: '#1e293b' }}>
+          Edit Student
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                name="name"
+                label="Full Name"
+                value={editFormData.name}
+                onChange={handleEditChange}
+                fullWidth
+                required
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                name="email"
+                label="Email"
+                type="email"
+                value={editFormData.email}
+                onChange={handleEditChange}
+                fullWidth
+                required
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel id="edit-grade-label">Grade</InputLabel>
+                <Select
+                  labelId="edit-grade-label"
+                  name="grade"
+                  value={editFormData.grade}
+                  label="Grade"
+                  onChange={handleEditChange}
+                >
+                  {grades.map((g) => (
+                    <MenuItem key={g} value={g.toString()}>Grade {g}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel id="edit-subjects-label">Subjects</InputLabel>
+                <Select
+                  labelId="edit-subjects-label"
+                  multiple
+                  value={editFormData.subjects}
+                  onChange={handleEditSubjectsChange}
+                  input={<OutlinedInput label="Subjects" />}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selected.map((v) => (
+                        <Chip key={v} label={v} size="small" sx={{ backgroundColor: '#f1f5f9', fontWeight: 500 }} />
+                      ))}
+                    </Box>
+                  )}
+                >
+                  {subjects.map((s) => (
+                    <MenuItem key={s} value={s}>{s}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={closeEditDialog} sx={{ fontWeight: 600, color: '#64748b' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleEditSubmit}
+            variant="contained"
+            disabled={editLoading}
+            sx={{ fontWeight: 600, borderRadius: 2 }}
+          >
+            {editLoading ? <CircularProgress size={22} /> : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -15,6 +15,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import BarChartIcon from '@mui/icons-material/BarChart'; // For Marks
 import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 
 const drawerWidth = 260;
 
@@ -28,6 +29,7 @@ const Sidebar = () => {
     { text: 'Manage Students', icon: <SchoolIcon />, path: '/admin/students' }, // Changed to School Icon
     { text: 'Manage Tutors', icon: <PersonIcon />, path: '/admin/tutors' },
     { text: 'Manage Parents', icon: <PeopleIcon />, path: '/admin/parents' },
+    { text: 'Manage Admins', icon: <AdminPanelSettingsIcon />, path: '/admin/admins' },
     { text: 'Manage Schedules', icon: <CalendarMonthIcon />, path: '/admin/schedules' },
     { text: 'Attendance', icon: <FactCheckIcon />, path: '/admin/attendance' },
     { text: 'Manage Marks', icon: <BarChartIcon />, path: '/admin/marks' }, // <--- NEW PAGE LINK
