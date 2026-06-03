@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Alert,
+  RefreshControl, Alert, Image,
 } from 'react-native';
+import { getAvatarUrl } from '../../utils/avatarUtils';
 import { parentService } from '../../services/parent';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
@@ -94,7 +95,6 @@ const ParentChildrenScreen = () => {
         }
       >
         {children.length > 0 ? children.map((child) => {
-          const initials = child.user.name.split(' ').map(n => n[0]).join('').toUpperCase();
           const childActions = [
             {
               icon: 'school-outline',
@@ -119,9 +119,7 @@ const ParentChildrenScreen = () => {
             <GlassCard key={child._id} accentColor={BRAND.teal} style={s.childCard}>
               {/* Child header */}
               <View style={s.childHeader}>
-                <View style={s.avatar}>
-                  <Text style={s.avatarText}>{initials}</Text>
-                </View>
+                <Image source={{ uri: getAvatarUrl(child.user.name) }} style={s.avatar} />
                 <View style={s.childInfo}>
                   <Text style={s.childName}>{child.user.name}</Text>
                   <Text style={s.childGrade}>Grade {child.grade}</Text>
@@ -193,8 +191,7 @@ const s = StyleSheet.create({
   childHeader: { flexDirection: 'row', alignItems: 'center', padding: 16 },
   avatar: {
     width: 56, height: 56, borderRadius: 28,
-    backgroundColor: BRAND.teal,
-    justifyContent: 'center', alignItems: 'center',
+    overflow: 'hidden',
     marginRight: 14,
     shadowColor: BRAND.teal, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35, shadowRadius: 8, elevation: 6,

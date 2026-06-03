@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, Platform,
+  Alert, Platform, Image,
 } from 'react-native';
+import { getAvatarUrl } from '../../utils/avatarUtils';
 import { useAuth } from '../../context/AuthContext';
 import { parentService } from '../../services/parent';
 import { useNavigation } from '@react-navigation/native';
@@ -73,7 +74,7 @@ const ParentProfileScreen = () => {
     Alert.alert('Coming Soon', `${feature} will be available in a future update.`);
   };
 
-  const initials = (user?.name || 'P').split(' ').map((n: string) => n[0]).join('').toUpperCase();
+
 
   const BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_OFFSET + 16;
 
@@ -108,9 +109,7 @@ const ParentProfileScreen = () => {
         <GlassCard style={s.avatarCard}>
           <View style={s.avatarInner}>
             <View style={s.avatarRing}>
-              <View style={s.avatarCircle}>
-                <Text style={s.avatarText}>{initials}</Text>
-              </View>
+              <Image source={{ uri: getAvatarUrl(user?.name) }} style={s.avatarCircle} />
             </View>
             <Text style={s.nameText}>{user?.name || 'Parent'}</Text>
             <Text style={s.emailText}>{user?.email || ''}</Text>
@@ -205,8 +204,7 @@ const s = StyleSheet.create({
   },
   avatarCircle: {
     width: 84, height: 84, borderRadius: 42,
-    backgroundColor: BRAND.teal,
-    justifyContent: 'center', alignItems: 'center',
+    overflow: 'hidden',
     shadowColor: BRAND.teal, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
   },

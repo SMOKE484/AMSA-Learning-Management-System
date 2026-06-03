@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, Modal, TextInput, KeyboardAvoidingView, Platform,
-  ActivityIndicator,
+  ActivityIndicator, Image,
 } from 'react-native';
+import { getAvatarUrl } from '../../utils/avatarUtils';
 import { useAuth } from '../../context/AuthContext';
 import { studentService } from '../../services/student';
 import { BlurView } from 'expo-blur';
@@ -13,8 +14,8 @@ import BouncingDotsLoader from '../../components/BouncingDotsLoader';
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
 import { BRAND } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
-
-
+
+
 
 // ─── MenuItem ────────────────────────────────────────────────────────────────
 const MenuItem: React.FC<{
@@ -100,7 +101,7 @@ const StudentProfileScreen = () => {
     }
   };
 
-  const initials = (profile?.user?.name || user?.name || 'S').charAt(0).toUpperCase();
+  const avatarName = profile?.user?.name || user?.name;
   const displayName  = profile?.user?.name  || user?.name  || '';
   const displayEmail = profile?.user?.email || user?.email || '';
 
@@ -139,9 +140,7 @@ const StudentProfileScreen = () => {
         <GlassCard style={s.avatarCard}>
           <View style={s.avatarInner}>
             <View style={s.avatarRing}>
-              <View style={s.avatarCircle}>
-                <Text style={s.avatarText}>{initials}</Text>
-              </View>
+              <Image source={{ uri: getAvatarUrl(avatarName) }} style={s.avatarCircle} />
             </View>
 
             <Text style={s.nameText}>{displayName}</Text>
@@ -298,8 +297,7 @@ const s = StyleSheet.create({
   },
   avatarCircle: {
     width: 84, height: 84, borderRadius: 42,
-    backgroundColor: BRAND.red,
-    justifyContent: 'center', alignItems: 'center',
+    overflow: 'hidden',
     shadowColor: BRAND.red, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
   },

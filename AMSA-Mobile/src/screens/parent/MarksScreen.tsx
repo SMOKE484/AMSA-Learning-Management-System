@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, RefreshControl,
+  Alert, RefreshControl, Image,
 } from 'react-native';
+import { getAvatarUrl } from '../../utils/avatarUtils';
 import { parentService } from '../../services/parent';
 import { useAuth } from '../../context/AuthContext';
 import { useRoute } from '@react-navigation/native';
@@ -163,11 +164,7 @@ const ParentMarksScreen = () => {
             <View key={childName}>
               {/* Child name header */}
               <View style={s.childHeaderRow}>
-                <View style={[s.childAvatar]}>
-                  <Text style={s.childAvatarText}>
-                    {childName.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
-                  </Text>
-                </View>
+                <Image source={{ uri: getAvatarUrl(childName) }} style={s.childAvatar} />
                 <Text style={s.childNameText}>{childName}</Text>
               </View>
 
@@ -265,8 +262,7 @@ const s = StyleSheet.create({
   childHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12, marginTop: 8 },
   childAvatar: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: BRAND.teal,
-    justifyContent: 'center', alignItems: 'center',
+    overflow: 'hidden',
   },
   childAvatarText: { fontSize: 15, fontWeight: '800', color: '#fff' },
   childNameText:   { fontSize: 18, fontWeight: '700', color: BRAND.textPrimary, letterSpacing: -0.3 },
