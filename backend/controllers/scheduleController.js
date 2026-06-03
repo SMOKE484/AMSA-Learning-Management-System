@@ -70,8 +70,23 @@ export const getSchedules = async (req, res) => {
   try {
     const { tutorId, studentId, subject, grade, startDate, endDate, status, page = 1, limit = 10 } = req.query;
     const filter = {};
-    if (tutorId) filter.tutor = tutorId;
-    if (studentId) filter.students = studentId;
+
+    // Enforce role-based scope — users can only see schedules relevant to them
+    if (req.role === "student") {
+      filter.students = req.studentId;
+    } else if (req.role === "tutor") {
+      const tutor = await Tutor.findOne({ user: req.userId });
+      if (!tutor) return res.status(403).json({ message: "Tutor profile not found" });
+      filter.tutor = tutor._id;
+    } else if (req.role === "parent") {
+      const children = await Student.find({ parents: req.userId }).select("_id");
+      filter.students = { $in: children.map(c => c._id) };
+    }
+    // admin: no scope restriction
+
+    // Additional optional filters (only further narrow the scoped results)
+    if (req.role === "admin" && tutorId) filter.tutor = tutorId;
+    if (req.role === "admin" && studentId) filter.students = studentId;
     if (subject) filter.subject = subject;
     if (grade) filter.grade = grade;
     if (status) filter.status = status;
