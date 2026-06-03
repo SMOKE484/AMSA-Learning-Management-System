@@ -3,6 +3,7 @@ import { Box, CssBaseline, AppBar, Toolbar, Typography, Button, Avatar } from '@
 import Sidebar from './Sidebar';
 import { useAuth } from '../../hooks/useAuth';
 import logo from '../../assets/images/AMSA_Logo.png';
+import { getAvatarUrl } from '../../utils/avatarUtils';
 
 const Layout = ({ children }) => {
   const { user, logoutUser } = useAuth();
@@ -40,17 +41,11 @@ const Layout = ({ children }) => {
                 {user.role}
               </Typography>
             </Box>
-            <Avatar 
-              sx={{ 
-                width: 40, 
-                height: 40, 
-                bgcolor: 'primary.main',
-                fontSize: '1rem',
-                fontWeight: 600
-              }}
-            >
-              {user.name.charAt(0).toUpperCase()}
-            </Avatar>
+            <Avatar
+              src={getAvatarUrl(user.name)}
+              alt={user.name}
+              sx={{ width: 40, height: 40 }}
+            />
             <Button 
               variant="outlined" 
               onClick={logoutUser}
