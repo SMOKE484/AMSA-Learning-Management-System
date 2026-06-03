@@ -8,7 +8,7 @@ import {
   invalidateStudentCache 
 } from "../middleware/cacheMiddleware.js";
 import { NotificationService } from "../utils/notificationService.js";
-import fs from "fs";
+import path from "path";
 import { uploadToS3 } from "../utils/s3Service.js";
 
 // Get tutor profile
@@ -71,89 +71,61 @@ export const uploadNote = async (req, res) => {
   try {
     const { title, description, subject, grade } = req.body;
 
-    // 1. Basic Validation
     if (!req.file) {
       return res.status(400).json({ message: "No PDF file uploaded" });
     }
 
-    // Cleanup helper: deletes file if validation fails
-    const cleanupLocalFile = () => {
-      if (req.file && fs.existsSync(req.file.path)) {
-        fs.unlinkSync(req.file.path);
-      }
-    };
-
     if (!title || !subject || !grade) {
-      cleanupLocalFile();
       return res.status(400).json({ message: "Title, Subject, and Grade are required" });
     }
 
     const tutor = await Tutor.findOne({ user: req.userId });
     if (!tutor) {
-      cleanupLocalFile();
       return res.status(404).json({ message: "Tutor not found" });
     }
 
-    // 2. Permission Validation
     if (!tutor.subjects.includes(subject)) {
-      cleanupLocalFile();
       return res.status(403).json({
         message: "You can only upload notes for your assigned subjects",
       });
     }
 
     if (!tutor.grades.includes(grade)) {
-      cleanupLocalFile();
-      return res.status(403).json({ 
-        message: "You can only upload notes for one of your assigned grades" 
+      return res.status(403).json({
+        message: "You can only upload notes for one of your assigned grades",
       });
     }
 
-    // 3. Upload directly to AWS S3
+    const uniqueFileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(req.file.originalname)}`;
+
     let s3Url;
     try {
-      console.log("Uploading file to S3...");
-      s3Url = await uploadToS3(
-        req.file.path, 
-        req.file.filename, 
-        "application/pdf"
-      );
+      s3Url = await uploadToS3(req.file.buffer, uniqueFileName, "application/pdf");
     } catch (uploadError) {
-      cleanupLocalFile();
       return res.status(500).json({ message: "Failed to upload to cloud storage" });
     }
 
-    // 4. Cleanup Local File (We deleted it because it's safe in S3 now)
-    cleanupLocalFile();
-
-    // 5. Create Database Record
     const note = await Note.create({
       title,
       description,
-      fileUrl: s3Url, // The S3 URL
+      fileUrl: s3Url,
       tutor: tutor._id,
       subject,
       grade,
     });
 
-    // 6. Send Notifications
-    const studentsToNotify = await Student.find({ 
-      grade: grade, 
-      subjects: subject 
+    const studentsToNotify = await Student.find({
+      grade: grade,
+      subjects: subject,
     }).select('_id');
     const studentIds = studentsToNotify.map(s => s._id);
-    
+
     NotificationService.sendNoteNotification(studentIds, note);
 
-    // 7. Invalidate Cache
     await invalidateNotesCache();
 
     res.status(201).json({ message: "Note uploaded successfully", note });
   } catch (error) {
-    // Final safety cleanup in case of crash
-    if (req.file && fs.existsSync(req.file.path)) {
-      try { fs.unlinkSync(req.file.path); } catch(e) {}
-    }
     res.status(500).json({ message: error.message });
   }
 };

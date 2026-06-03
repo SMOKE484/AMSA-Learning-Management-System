@@ -1,8 +1,6 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import fs from "fs";
 import dotenv from "dotenv";
 
-// Load environment variables
 dotenv.config();
 
 const s3Client = new S3Client({
@@ -13,27 +11,16 @@ const s3Client = new S3Client({
   },
 });
 
-/**
- * Uploads a file to AWS S3 and returns the public URL
- * @param {string} filePath - Local path to the file
- * @param {string} fileName - Desired name in S3
- * @param {string} mimeType - File type (e.g., 'application/pdf')
- * @returns {Promise<string>} - The public URL of the uploaded file
- */
-export const uploadToS3 = async (filePath, fileName, mimeType) => {
-  const fileStream = fs.createReadStream(filePath);
-
+export const uploadToS3 = async (fileBuffer, fileName, mimeType) => {
   const uploadParams = {
     Bucket: process.env.AWS_BUCKET_NAME,
-    Key: `notes/${fileName}`, 
-    Body: fileStream,
+    Key: `notes/${fileName}`,
+    Body: fileBuffer,
     ContentType: mimeType,
   };
 
   try {
     await s3Client.send(new PutObjectCommand(uploadParams));
-    
-    // Construct the public URL
     const url = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/notes/${fileName}`;
     return url;
   } catch (error) {
