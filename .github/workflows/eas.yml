@@ -1,17 +1,50 @@
-name: EAS Build & Submit
+name: EAS Build, Submit & Update
 
 on:
   push:
     branches:
+      - main      # OTA update on every push
       - release   # Full build + store submit on release branch
-  workflow_dispatch:  # Allow manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
-  # ─────────────────────────────────────────────────────────────────────────
-  # Full native build + app store submission
-  # Runs only when you push to the 'release' branch
-  # OTA updates are handled by EAS native workflow in .eas/workflows/update.yml
-  # ─────────────────────────────────────────────────────────────────────────
+  ota-update:
+    name: OTA Update (JS changes)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: AMSA-Mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: AMSA-Mobile
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Publish OTA update (Android)
+        run: eas update --branch production --message "${{ github.event.head_commit.message }}" --platform android
+        working-directory: AMSA-Mobile
+        env:
+          CI: "1"
+
+      - name: Publish OTA update (iOS)
+        run: eas update --branch production --message "${{ github.event.head_commit.message }}" --platform ios
+        working-directory: AMSA-Mobile
+        env:
+          CI: "1"
+
   build-and-submit:
     name: Build & Submit to App Stores
     if: github.ref == 'refs/heads/release'
