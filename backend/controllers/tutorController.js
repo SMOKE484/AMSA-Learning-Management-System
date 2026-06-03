@@ -31,7 +31,12 @@ export const addAttendance = async (req, res) => {
   try {
     const { status } = req.body;
     const { studentId } = req.params;
-    
+
+    const VALID_STATUSES = ['present', 'absent', 'late'];
+    if (!VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status. Must be present, absent, or late.' });
+    }
+
     const tutor = await Tutor.findOne({ user: req.userId });
     if (!tutor) return res.status(404).json({ message: "Tutor not found" });
 

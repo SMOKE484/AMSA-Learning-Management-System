@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import User from "../models/user.js";
 import Student from "../models/student.js";
 import Tutor from "../models/tutor.js";
@@ -252,7 +253,12 @@ export const getAllMarks = async (req, res) => {
     const query = {};
     if (grade) query.grade = grade;
     if (subject) query.subject = subject;
-    if (studentId) query.student = studentId;
+    if (studentId) {
+      if (!mongoose.Types.ObjectId.isValid(studentId)) {
+        return res.status(400).json({ message: 'Invalid student ID.' });
+      }
+      query.student = studentId;
+    }
     if (minScore) query.score = { $gte: Number(minScore) }; // Good for finding distinction students
 
     // 2. Determine Sorting (Default to newest)

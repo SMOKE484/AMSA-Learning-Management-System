@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
+import helmet from "helmet";
 import { authenticate, authorize } from "./middleware/authMiddleware.js";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
@@ -18,6 +19,7 @@ dotenv.config();
 
 const app = express();
 
+app.use(helmet());
 app.use(cors({
   origin: [
     'https://amsa-learning-management-system.vercel.app',
@@ -216,76 +218,7 @@ app.get("/api/health", async (req, res) => {
   });
 });
 
-app.get("/api/redis-test", async (req, res) => {
-  try {
-    if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-      return res.json({ 
-        status: 'disabled', 
-        message: 'Redis environment variables not set. Caching will be disabled.' 
-      });
-    }
 
-    const { Redis } = await import('@upstash/redis');
-    
-    const testRedis = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    });
-
-    await testRedis.set('test', 'Redis is working!');
-    const value = await testRedis.get('test');
-    
-    res.json({ 
-      status: 'connected', 
-      message: 'Redis is working properly',
-      testValue: value
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      status: 'error', 
-      message: 'Redis connection failed',
-      error: error.message 
-    });
-  }
-});
-
-app.get("/api/scheduling-test", async (req, res) => {
-  try {
-    const ClassSchedule = (await import('./models/classSchedule.js')).default;
-    const Attendance = (await import('./models/Attendance.js')).default;
-    const SchoolConfig = (await import('./models/schoolConfig.js')).default;
-
-    const schoolConfig = await SchoolConfig.getConfig();
-    
-    res.json({
-      status: 'ready',
-      message: 'Class scheduling system is ready',
-      components: {
-        models: {
-          ClassSchedule: 'Loaded',
-          Attendance: 'Loaded', 
-          SchoolConfig: 'Loaded'
-        },
-        schoolConfig: {
-          name: schoolConfig.name,
-          geoFencing: schoolConfig.geoFencingEnabled,
-          radius: schoolConfig.allowedRadius
-        },
-        features: {
-          automatedAttendance: 'Enabled',
-          geoValidation: schoolConfig.geoFencingEnabled ? 'Enabled' : 'Disabled',
-          pushNotifications: 'Ready'
-        }
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: 'error',
-      message: 'Scheduling system test failed',
-      error: error.message
-    });
-  }
-});
 
 if (process.env.NODE_ENV === 'development') {
   app.post("/api/jobs/run-manually", async (req, res) => {
@@ -309,59 +242,8 @@ if (process.env.NODE_ENV === 'development') {
   });
 }
 
-app.get("/api/cache-test", async (req, res) => {
-  try {
-    const redisModule = await import('./config/redis.js');
-    const currentRedis = redisModule.default;
 
-    if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-      return res.json({ 
-        status: 'no_cache',
-        message: 'Redis not configured - response not cached',
-        data: { test: 'This response is not cached' },
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    const cacheKey = 'cache_test_data';
-    
-    const cachedData = await currentRedis.get(cacheKey);
-    
-    if (cachedData && cachedData !== null) {
-      return res.json({
-        status: 'cached',
-        message: 'This response came from Redis cache',
-        data: cachedData,
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    const testData = {
-      message: 'This is test data that will be cached for 60 seconds',
-      generatedAt: new Date().toISOString(),
-      randomNumber: Math.random()
-    };
-
-    await currentRedis.setex(cacheKey, 60, testData);
-
-    res.json({
-      status: 'not_cached',
-      message: 'This response was generated and cached for next time',
-      data: testData,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.json({
-      status: 'error',
-      message: 'Cache test failed, but application still works',
-      error: error.message,
-      data: { test: 'Fallback data' },
-      timestamp: new Date().toISOString()
-    });
-  }
-});
-
-app.get("/api/school-config", async (req, res) => {
+app.get("/api/school-config", authenticate, async (req, res) => {
   try {
     const SchoolConfig = (await import('./models/schoolConfig.js')).default;
     const config = await SchoolConfig.getConfig();
@@ -378,11 +260,10 @@ app.get("/api/school-config", async (req, res) => {
         defaultCheckInBuffer: config.defaultCheckInBuffer,
         defaultCheckOutBuffer: config.defaultCheckOutBuffer,
         autoMarkAbsentEnabled: config.autoMarkAbsentEnabled,
-        allowedIPs: config.allowedIPs || []
       }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch school configuration', error: error.message });
+    res.status(500).json({ message: 'Failed to fetch school configuration' });
   }
 });
 
