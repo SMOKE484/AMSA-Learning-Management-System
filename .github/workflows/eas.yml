@@ -38,8 +38,10 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Publish OTA update
-        run: eas update --branch production --message "${{ github.event.head_commit.message }}" --non-interactive
+        run: eas update --branch production --message "${{ github.event.head_commit.message }}" --platform ios,android
         working-directory: AMSA-Mobile
+        env:
+          CI: "1"
 
   # ─────────────────────────────────────────────────────────────────────────
   # Full native build + app store submission
@@ -71,9 +73,13 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build for all platforms
-        run: eas build --platform all --profile production --non-interactive
+        run: eas build --platform all --profile production
         working-directory: AMSA-Mobile
+        env:
+          CI: "1"
 
       - name: Submit to App Stores
-        run: eas submit --platform all --profile production --non-interactive
+        run: eas submit --platform all --profile production
         working-directory: AMSA-Mobile
+        env:
+          CI: "1"
