@@ -9,7 +9,7 @@ import {
 } from "../middleware/cacheMiddleware.js";
 import { NotificationService } from "../utils/notificationService.js";
 import path from "path";
-import { uploadToS3 } from "../utils/s3Service.js";
+import { uploadToS3, deleteFromS3 } from "../utils/s3Service.js";
 
 // Get tutor profile
 export const getMyProfile = async (req, res) => {
@@ -141,6 +141,53 @@ export const getTutorNotes = async (req, res) => {
       .sort({ createdAt: -1 });
     
     res.json({ notes });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Delete a note owned by this tutor
+export const deleteNote = async (req, res) => {
+  try {
+    const tutor = await Tutor.findOne({ user: req.userId });
+    if (!tutor) return res.status(404).json({ message: "Tutor not found" });
+
+    const note = await Note.findById(req.params.noteId);
+    if (!note) return res.status(404).json({ message: "Note not found" });
+    if (!note.tutor.equals(tutor._id)) return res.status(403).json({ message: "Not authorised to delete this note" });
+
+    try { await deleteFromS3(note.fileUrl); } catch (e) { console.error("S3 delete failed:", e.message); }
+
+    await Note.findByIdAndDelete(req.params.noteId);
+    await invalidateNotesCache();
+
+    res.json({ message: "Note deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Update title/description of a note owned by this tutor
+export const updateNote = async (req, res) => {
+  try {
+    const tutor = await Tutor.findOne({ user: req.userId });
+    if (!tutor) return res.status(404).json({ message: "Tutor not found" });
+
+    const note = await Note.findById(req.params.noteId);
+    if (!note) return res.status(404).json({ message: "Note not found" });
+    if (!note.tutor.equals(tutor._id)) return res.status(403).json({ message: "Not authorised to edit this note" });
+
+    const { title, description } = req.body;
+    if (!title) return res.status(400).json({ message: "Title is required" });
+
+    const updated = await Note.findByIdAndUpdate(
+      req.params.noteId,
+      { title, description },
+      { new: true }
+    );
+    await invalidateNotesCache();
+
+    res.json({ message: "Note updated successfully", note: updated });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

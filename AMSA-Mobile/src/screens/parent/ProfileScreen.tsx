@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, Platform, Image,
+  Alert, Platform, Image, FlatList, Modal,
 } from 'react-native';
 import { getAvatarUrl } from '../../utils/avatarUtils';
+import { getStoredAvatarSeed, saveAvatarSeed, AVATAR_SEEDS } from '../../utils/avatarStorage';
 import { useAuth } from '../../context/AuthContext';
 import { parentService } from '../../services/parent';
 import { useNavigation } from '@react-navigation/native';
@@ -49,6 +50,20 @@ const ParentProfileScreen = () => {
   const navigation = useNavigation();
   const [childrenCount, setChildrenCount] = useState(0);
   const [loading, setLoading]             = useState(true);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [avatarSeed, setAvatarSeed]       = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.id) {
+      getStoredAvatarSeed(user.id).then(seed => setAvatarSeed(seed));
+    }
+  }, [user?.id]);
+
+  const handlePickAvatar = async (seed: string) => {
+    if (user?.id) await saveAvatarSeed(user.id, seed);
+    setAvatarSeed(seed);
+    setPickerVisible(false);
+  };
 
   const loadProfileData = async () => {
     try {
@@ -108,9 +123,12 @@ const ParentProfileScreen = () => {
         {/* ── AVATAR CARD ───────────────────────────────────────────────── */}
         <GlassCard style={s.avatarCard}>
           <View style={s.avatarInner}>
-            <View style={s.avatarRing}>
-              <Image source={{ uri: getAvatarUrl(user?.name) }} style={s.avatarCircle} />
-            </View>
+            <TouchableOpacity style={s.avatarRing} onPress={() => setPickerVisible(true)} activeOpacity={0.8}>
+              <Image source={{ uri: getAvatarUrl(avatarSeed ?? user?.name) }} style={s.avatarCircle} />
+              <View style={s.avatarEditBadge}>
+                <Icon name="create-outline" size={10} color="#fff" />
+              </View>
+            </TouchableOpacity>
             <Text style={s.nameText}>{user?.name || 'Parent'}</Text>
             <Text style={s.emailText}>{user?.email || ''}</Text>
             <View style={s.badgeRow}>
@@ -175,6 +193,40 @@ const ParentProfileScreen = () => {
 
         <Text style={s.versionText}>Parent Portal v1.0</Text>
       </ScrollView>
+
+      {/* ── AVATAR PICKER MODAL ──────────────────────────────────────────── */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={pickerVisible}
+        onRequestClose={() => setPickerVisible(false)}
+      >
+        <View style={s.modalOverlay}>
+          <View style={s.pickerCard}>
+            <View style={s.pickerHeader}>
+              <Text style={s.pickerTitle}>Choose Your Avatar</Text>
+              <TouchableOpacity onPress={() => setPickerVisible(false)} style={s.pickerClose}>
+                <Icon name="close" size={20} color={BRAND.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={AVATAR_SEEDS}
+              keyExtractor={item => item}
+              numColumns={4}
+              contentContainerStyle={s.pickerGrid}
+              renderItem={({ item: seed }) => (
+                <TouchableOpacity
+                  style={[s.pickerItem, avatarSeed === seed && s.pickerItemSelected]}
+                  onPress={() => handlePickAvatar(seed)}
+                  activeOpacity={0.7}
+                >
+                  <Image source={{ uri: getAvatarUrl(seed) }} style={s.pickerAvatar} />
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -230,6 +282,40 @@ const s = StyleSheet.create({
   menuLabel:       { fontSize: 15, fontWeight: '500', color: BRAND.textPrimary, flex: 1 },
 
   versionText: { textAlign: 'center', fontSize: 12, color: BRAND.textMuted, marginTop: 8, marginBottom: 16 },
+
+  // Avatar edit badge
+  avatarEditBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: BRAND.teal,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: BRAND.surface,
+  },
+
+  // Avatar picker modal
+  modalOverlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
+  pickerCard: {
+    backgroundColor: BRAND.surface,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 24, paddingBottom: 40,
+    borderWidth: 1, borderColor: BRAND.borderStrong,
+  },
+  pickerHeader:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  pickerTitle:        { fontSize: 20, fontWeight: '700', color: BRAND.textPrimary },
+  pickerClose: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: BRAND.surfaceAlt, borderWidth: 1, borderColor: BRAND.border,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  pickerGrid:         { paddingTop: 8 },
+  pickerItem: {
+    flex: 1, margin: 6, aspectRatio: 1,
+    borderRadius: 16, borderWidth: 2, borderColor: 'transparent',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: BRAND.surfaceAlt,
+  },
+  pickerItemSelected: { borderColor: BRAND.teal },
+  pickerAvatar:       { width: 56, height: 56, borderRadius: 28 },
 });
 
 export default ParentProfileScreen;

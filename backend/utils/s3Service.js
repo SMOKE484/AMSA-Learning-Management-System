@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -27,4 +27,12 @@ export const uploadToS3 = async (fileBuffer, fileName, mimeType) => {
     console.error("S3 Upload Error:", error);
     throw new Error(`Failed to upload file to S3: ${error.message}`);
   }
+};
+
+export const deleteFromS3 = async (fileUrl) => {
+  const key = fileUrl.split('.amazonaws.com/')[1];
+  await s3Client.send(new DeleteObjectCommand({
+    Bucket: process.env.AWS_BUCKET_NAME,
+    Key: key,
+  }));
 };

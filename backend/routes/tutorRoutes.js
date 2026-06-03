@@ -5,6 +5,8 @@ import {
   addAttendance,
   uploadNote,
   getTutorNotes,
+  deleteNote,
+  updateNote,
   getAssignedStudents,
   getTutorStudentMarks,
   updateTutorMark,
@@ -36,8 +38,10 @@ router.use(authorize("tutor"));
 router.get("/me", cache(300), getMyProfile);
 router.post("/students/:studentId/attendance", addAttendance); 
 router.get("/students/assigned", cache(600), getAssignedStudents); 
-router.post("/notes/upload", upload.single("file"), uploadNote); 
-router.get("/notes", cache(300), getTutorNotes); 
+router.post("/notes/upload", upload.single("file"), uploadNote);
+router.get("/notes", cache(300), getTutorNotes);
+router.put("/notes/:noteId", updateNote);
+router.delete("/notes/:noteId", deleteNote);
 router.post("/marks/upload", uploadMarks); 
 router.get("/marks/view", getTutorStudentMarks);
 router.put("/marks/:markId", updateTutorMark);

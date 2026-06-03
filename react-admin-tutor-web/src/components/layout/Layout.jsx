@@ -1,12 +1,27 @@
-import React from 'react';
-import { Box, CssBaseline, AppBar, Toolbar, Typography, Button, Avatar } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import {
+  Box, CssBaseline, AppBar, Toolbar, Typography, Button, Avatar,
+  Dialog, DialogTitle, DialogContent, Tooltip,
+} from '@mui/material';
 import Sidebar from './Sidebar';
 import { useAuth } from '../../hooks/useAuth';
 import logo from '../../assets/images/AMSA_Logo.png';
-import { getAvatarUrl } from '../../utils/avatarUtils';
+import { getAvatarUrl, getStoredAvatarSeed, saveAvatarSeed, AVATAR_SEEDS } from '../../utils/avatarUtils';
 
 const Layout = ({ children }) => {
   const { user, logoutUser } = useAuth();
+  const [avatarSeed, setAvatarSeed] = useState(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  useEffect(() => {
+    if (user?.id) setAvatarSeed(getStoredAvatarSeed(user.id));
+  }, [user?.id]);
+
+  const handlePickAvatar = (seed) => {
+    if (user?.id) saveAvatarSeed(user.id, seed);
+    setAvatarSeed(seed);
+    setPickerOpen(false);
+  };
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -41,11 +56,14 @@ const Layout = ({ children }) => {
                 {user.role}
               </Typography>
             </Box>
-            <Avatar
-              src={getAvatarUrl(user.name)}
-              alt={user.name}
-              sx={{ width: 40, height: 40 }}
-            />
+            <Tooltip title="Change avatar">
+              <Avatar
+                src={getAvatarUrl(avatarSeed ?? user.name)}
+                alt={user.name}
+                onClick={() => setPickerOpen(true)}
+                sx={{ width: 40, height: 40, cursor: 'pointer' }}
+              />
+            </Tooltip>
             <Button 
               variant="outlined" 
               onClick={logoutUser}
@@ -65,8 +83,31 @@ const Layout = ({ children }) => {
         </Toolbar>
       </AppBar>
       
+      {/* Avatar picker dialog */}
+      <Dialog open={pickerOpen} onClose={() => setPickerOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Choose Your Avatar</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1.5 }}>
+            {AVATAR_SEEDS.map(seed => (
+              <Box
+                key={seed}
+                onClick={() => handlePickAvatar(seed)}
+                sx={{
+                  p: 1, borderRadius: 2, cursor: 'pointer', textAlign: 'center',
+                  border: '2px solid',
+                  borderColor: avatarSeed === seed ? 'primary.main' : 'transparent',
+                  '&:hover': { borderColor: 'primary.light', backgroundColor: '#f1f5f9' },
+                }}
+              >
+                <Avatar src={getAvatarUrl(seed)} alt={seed} sx={{ width: 52, height: 52, mx: 'auto' }} />
+              </Box>
+            ))}
+          </Box>
+        </DialogContent>
+      </Dialog>
+
       <Sidebar />
-      
+
       <Box
         component="main"
         sx={{

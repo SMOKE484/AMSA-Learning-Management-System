@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, Modal, TextInput, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Image,
+  ActivityIndicator, Image, FlatList,
 } from 'react-native';
 import { getAvatarUrl } from '../../utils/avatarUtils';
+import { getStoredAvatarSeed, saveAvatarSeed, AVATAR_SEEDS } from '../../utils/avatarStorage';
 import { useAuth } from '../../context/AuthContext';
 import { studentService } from '../../services/student';
 import { BlurView } from 'expo-blur';
@@ -51,6 +52,8 @@ const StudentProfileScreen = () => {
   const [loading, setLoading]           = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [submitting, setSubmitting]     = useState(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [avatarSeed, setAvatarSeed]       = useState<string | null>(null);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword:     '',
@@ -58,6 +61,12 @@ const StudentProfileScreen = () => {
   });
 
   useEffect(() => { loadProfileData(); }, []);
+
+  useEffect(() => {
+    if (user?.id) {
+      getStoredAvatarSeed(user.id).then(seed => setAvatarSeed(seed));
+    }
+  }, [user?.id]);
 
   const loadProfileData = async () => {
     try {
@@ -101,7 +110,13 @@ const StudentProfileScreen = () => {
     }
   };
 
-  const avatarName = profile?.user?.name || user?.name;
+  const avatarName = avatarSeed ?? (profile?.user?.name || user?.name);
+
+  const handlePickAvatar = async (seed: string) => {
+    if (user?.id) await saveAvatarSeed(user.id, seed);
+    setAvatarSeed(seed);
+    setPickerVisible(false);
+  };
   const displayName  = profile?.user?.name  || user?.name  || '';
   const displayEmail = profile?.user?.email || user?.email || '';
 
@@ -139,9 +154,12 @@ const StudentProfileScreen = () => {
         {/* ── AVATAR CARD ───────────────────────────────────────────────── */}
         <GlassCard style={s.avatarCard}>
           <View style={s.avatarInner}>
-            <View style={s.avatarRing}>
+            <TouchableOpacity style={s.avatarRing} onPress={() => setPickerVisible(true)} activeOpacity={0.8}>
               <Image source={{ uri: getAvatarUrl(avatarName) }} style={s.avatarCircle} />
-            </View>
+              <View style={s.avatarEditBadge}>
+                <Icon name="create-outline" size={10} color="#fff" />
+              </View>
+            </TouchableOpacity>
 
             <Text style={s.nameText}>{displayName}</Text>
             <Text style={s.emailText}>{displayEmail}</Text>
@@ -202,6 +220,40 @@ const StudentProfileScreen = () => {
         </GlassCard>
 
       </ScrollView>
+
+      {/* ── AVATAR PICKER MODAL ──────────────────────────────────────────── */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={pickerVisible}
+        onRequestClose={() => setPickerVisible(false)}
+      >
+        <View style={s.modalOverlay}>
+          <View style={s.pickerCard}>
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>Choose Your Avatar</Text>
+              <TouchableOpacity onPress={() => setPickerVisible(false)} style={s.modalClose}>
+                <Icon name="close" size={20} color={BRAND.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={AVATAR_SEEDS}
+              keyExtractor={item => item}
+              numColumns={4}
+              contentContainerStyle={s.pickerGrid}
+              renderItem={({ item: seed }) => (
+                <TouchableOpacity
+                  style={[s.pickerItem, avatarSeed === seed && s.pickerItemSelected]}
+                  onPress={() => handlePickAvatar(seed)}
+                  activeOpacity={0.7}
+                >
+                  <Image source={{ uri: getAvatarUrl(seed) }} style={s.pickerAvatar} />
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
 
       {/* ── CHANGE PASSWORD MODAL ─────────────────────────────────────────── */}
       <Modal
@@ -353,6 +405,34 @@ const s = StyleSheet.create({
     borderRadius: 16, alignItems: 'center', marginTop: 8,
   },
   submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  // Avatar edit badge
+  avatarEditBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: BRAND.red,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: BRAND.surface,
+  },
+
+  // Avatar picker
+  pickerCard: {
+    backgroundColor: BRAND.surface,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 24, paddingBottom: 40,
+    borderWidth: 1, borderColor: BRAND.borderStrong,
+  },
+  pickerGrid:         { paddingTop: 8 },
+  pickerItem: {
+    flex: 1, margin: 6,
+    aspectRatio: 1,
+    borderRadius: 16,
+    borderWidth: 2, borderColor: 'transparent',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: BRAND.surfaceAlt,
+  },
+  pickerItemSelected: { borderColor: BRAND.red },
+  pickerAvatar:       { width: 56, height: 56, borderRadius: 28 },
 });
 
 export default StudentProfileScreen;
