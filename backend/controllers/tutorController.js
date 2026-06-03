@@ -2,6 +2,8 @@ import Tutor from "../models/tutor.js";
 import Note from "../models/notes.js";
 import Student from "../models/student.js";
 import Mark from "../models/mark.js";
+import Attendance from "../models/attendance.js";
+import ClassSchedule from "../models/classSchedule.js";
 import { 
   invalidateNotesCache, 
   invalidateMarksCache, 
@@ -228,9 +230,10 @@ export const getAssignedStudents = async (req, res) => {
       subjects: targetSubject,
     };
 
-    const students = await Student.find(filter).populate("user", "name email");
+    const allStudents = await Student.find(filter).populate("user", "name email");
+    const students = allStudents.filter(s => s.user !== null);
 
-    res.status(200).json({ 
+    res.status(200).json({
       students,
       filter: {
         grade: targetGrade,
@@ -358,6 +361,26 @@ export const updateTutorMark = async (req, res) => {
     await mark.save();
 
     res.json({ message: "Mark updated", mark });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getTutorAttendance = async (req, res) => {
+  try {
+    const tutor = await Tutor.findOne({ user: req.userId });
+    if (!tutor) return res.status(404).json({ message: "Tutor not found" });
+
+    const classes = await ClassSchedule.find({ tutor: tutor._id }).select("_id");
+    const classIds = classes.map(c => c._id);
+
+    const attendance = await Attendance.find({ class: { $in: classIds } })
+      .populate({ path: "student", populate: { path: "user", select: "name" } })
+      .populate("class", "title scheduledDate subject grade")
+      .sort({ createdAt: -1 })
+      .limit(200);
+
+    res.json({ attendance });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

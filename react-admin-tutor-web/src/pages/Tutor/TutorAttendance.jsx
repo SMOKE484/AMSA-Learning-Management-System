@@ -15,7 +15,7 @@ const TutorAttendance = () => {
     const fetchAttendance = async () => {
       try {
         // This endpoint would need to be created to get tutor's class attendance
-        const response = await api.get('/tutor/attendance');
+        const response = await api.get('/tutors/attendance');
         setAttendance(response.data.attendance || []);
       } catch (error) {
         console.error('Failed to fetch attendance:', error);

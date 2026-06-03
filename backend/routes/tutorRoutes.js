@@ -3,6 +3,7 @@ import multer from "multer";
 import {
   getMyProfile,
   addAttendance,
+  getTutorAttendance,
   uploadNote,
   getTutorNotes,
   deleteNote,
@@ -36,7 +37,8 @@ const upload = multer({
 router.use(authenticate);
 router.use(authorize("tutor"));
 router.get("/me", cache(300), getMyProfile);
-router.post("/students/:studentId/attendance", addAttendance); 
+router.post("/students/:studentId/attendance", addAttendance);
+router.get("/attendance", getTutorAttendance);
 router.get("/students/assigned", cache(600), getAssignedStudents); 
 router.post("/notes/upload", upload.single("file"), uploadNote);
 router.get("/notes", cache(300), getTutorNotes);

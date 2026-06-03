@@ -3,6 +3,8 @@ import User from "../models/user.js";
 import Student from "../models/student.js";
 import Tutor from "../models/tutor.js";
 import Mark from "../models/mark.js";
+import Attendance from "../models/attendance.js";
+import ClassSchedule from "../models/classSchedule.js";
 import bcrypt from "bcryptjs";
 import { invalidateTutorCache } from "../middleware/cacheMiddleware.js";
 import { PREDEFINED_SUBJECTS, PREDEFINED_GRADES } from "../config/academicConfig.js";
@@ -66,29 +68,46 @@ export const createStudent = async (req, res) => {
 };
 
 export const deleteUser = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
     const { userId } = req.params;
 
-    const deletedUser = await User.findByIdAndDelete(userId);
+    const deletedUser = await User.findByIdAndDelete(userId, { session });
     if (!deletedUser) {
+      await session.abortTransaction();
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Delete linked profile records
-    await Tutor.deleteOne({ user: userId });
-    await Student.deleteOne({ user: userId });
-
-    // If a parent was deleted, remove their ID from all students' parents arrays
-    if (deletedUser.role === "parent") {
+    if (deletedUser.role === "student") {
+      const student = await Student.findOneAndDelete({ user: userId }, { session });
+      if (student) {
+        // Remove all their marks, attendance records, and their ID from class rosters
+        await Mark.deleteMany({ student: student._id }, { session });
+        await Attendance.deleteMany({ student: student._id }, { session });
+        await ClassSchedule.updateMany(
+          { students: student._id },
+          { $pull: { students: student._id } },
+          { session }
+        );
+      }
+    } else if (deletedUser.role === "tutor") {
+      await Tutor.deleteOne({ user: userId }, { session });
+    } else if (deletedUser.role === "parent") {
       await Student.updateMany(
         { parents: userId },
-        { $pull: { parents: userId } }
+        { $pull: { parents: userId } },
+        { session }
       );
     }
 
-    res.status(200).json({ message: "User and linked records deleted successfully" });
+    await session.commitTransaction();
+    res.status(200).json({ message: "User and all linked records deleted successfully" });
   } catch (error) {
+    await session.abortTransaction();
     res.status(500).json({ message: error.message });
+  } finally {
+    session.endSession();
   }
 };
 
