@@ -117,8 +117,8 @@ const StudentProfileScreen = () => {
     setAvatarSeed(seed);
     setPickerVisible(false);
   };
-  const displayName  = profile?.user?.name  || user?.name  || '';
-  const displayEmail = profile?.user?.email || user?.email || '';
+  const displayName  = user?.name  || profile?.user?.name  || '';
+  const displayEmail = user?.email || profile?.user?.email || '';
 
   const BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_OFFSET + 16;
 

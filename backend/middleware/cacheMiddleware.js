@@ -21,7 +21,7 @@ export const cache = (expireSeconds = 300) => {
       return next();
     }
 
-    const key = `cache:${req.originalUrl}`;
+    const key = `cache:${req.userId ?? 'anon'}:${req.originalUrl}`;
 
     try {
       // Try to get cached data
