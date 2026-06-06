@@ -304,7 +304,64 @@ export const sendAbsentAlert = async (studentId, classDetails) => {
 };
 
 /**
- * 7. Send Bulk Notifications (Admin/General)
+ * 7. Send "Manual Attendance" Notification (Student + Parents)
+ * Triggered when an admin or tutor manually marks a student's attendance
+ */
+export const sendManualAttendanceNotification = async (studentId, classDetails, status, markedByRole) => {
+  try {
+    const student = await Student.findById(studentId)
+      .populate('user', 'name pushToken')
+      .populate('parents');
+
+    if (!student) return;
+
+    const statusLabel = { present: 'present', absent: 'absent', late: 'late', excused: 'excused' }[status] || status;
+    const subject = classDetails.subject || 'class';
+
+    const messages = [];
+
+    // Notify the student
+    if (student.user?.pushToken && Expo.isExpoPushToken(student.user.pushToken)) {
+      messages.push({
+        to: student.user.pushToken,
+        sound: 'default',
+        title: 'Attendance Updated',
+        body: `You've been marked ${statusLabel} for the ${subject} class.`,
+        data: { screen: 'Attendance' },
+        priority: 'high'
+      });
+    }
+
+    // Notify parents
+    if (student.parents?.length > 0) {
+      student.parents.forEach(parent => {
+        if (parent.pushToken && Expo.isExpoPushToken(parent.pushToken)) {
+          messages.push({
+            to: parent.pushToken,
+            sound: 'default',
+            title: 'Attendance Alert 🏫',
+            body: `${student.user?.name} has been marked ${statusLabel} for the ${subject} class.`,
+            data: { screen: 'ChildSchedule', studentId: student._id },
+            priority: 'high'
+          });
+        }
+      });
+    }
+
+    if (messages.length === 0) return;
+
+    const chunks = expo.chunkPushNotifications(messages);
+    for (const chunk of chunks) {
+      await expo.sendPushNotificationsAsync(chunk);
+    }
+    console.log(`✅ Manual attendance notifications sent for ${student.user?.name} (${statusLabel})`);
+  } catch (error) {
+    console.error('❌ Manual Attendance Notification Error:', error);
+  }
+};
+
+/**
+ * 8. Send Bulk Notifications (Admin/General)
  */
 export const sendBulkNotifications = async (notifications) => {
   try {
@@ -386,6 +443,7 @@ export const NotificationService = {
   sendMarksNotification,
   sendAttendanceConfirmation,
   sendAbsentAlert,
+  sendManualAttendanceNotification,
   sendBulkNotifications,
   cleanupExpiredNotifications,
   processPendingNotifications

@@ -45,10 +45,8 @@ export const login = async (req, res) => {
 export const updatePushToken = async (req, res) => {
   try {
     const { pushToken } = req.body;
-    if (!pushToken) return res.status(400).json({ message: "Token required" });
-
-    await User.findByIdAndUpdate(req.userId, { pushToken });
-    res.json({ success: true, message: "Push token updated" });
+    await User.findByIdAndUpdate(req.userId, { pushToken: pushToken || null });
+    res.json({ success: true, message: pushToken ? "Push token updated" : "Push token cleared" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -60,6 +60,8 @@ export const markStudentAttendance = async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
+    NotificationService.sendManualAttendanceNotification(studentId, classSchedule, status, req.role);
+
     res.json({ success: true, message: 'Attendance marked successfully', attendance });
   } catch (error) {
     console.error('markStudentAttendance error:', error);
