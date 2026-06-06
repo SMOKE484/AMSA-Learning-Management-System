@@ -14,7 +14,17 @@ export type RootStackParamList = {
   Marks: undefined;
   Attendance: undefined;
   Profile: undefined;
-  // Add other screens here
+  NotificationSettings: undefined;
+};
+
+export type StudentStackParamList = RootStackParamList;
+
+export type ParentStackParamList = {
+  Dashboard: undefined;
+  Children: undefined;
+  Marks: undefined;
+  Profile: undefined;
+  NotificationSettings: undefined;
 };
 
 // This helps TypeScript know what screens exist and what params they accept

@@ -4,7 +4,7 @@ import { NavigationContainer, useNavigationContainerRef } from '@react-navigatio
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform, AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import * as Font from 'expo-font';
@@ -19,6 +19,8 @@ import { BRAND } from './src/components/theme';
 import { AnimatedSplashScreen } from './src/components/AnimatedSplashScreen';
 
 // Import Screens
+import NotificationSettingsScreen from './src/screens/shared/NotificationSettingsScreen';
+import { registerForPushNotificationsAsync } from './src/utils/notifications';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import StudentDashboardScreen from './src/screens/student/DashboardScreen';
 import StudentNotesScreen from './src/screens/student/NotesScreen';
@@ -215,6 +217,18 @@ const ParentStackNavigator: React.FC = () => (
       component={ParentTabNavigator}
       options={{ headerShown: false }}
     />
+    <Stack.Screen
+      name="NotificationSettings"
+      component={NotificationSettingsScreen}
+      options={{
+        title: 'Notification Settings',
+        headerShown: true,
+        presentation: 'card',
+        headerStyle: { backgroundColor: BRAND.bg },
+        headerTintColor: '#FFFFFF',
+        headerTitleStyle: { fontWeight: '700', color: '#FFFFFF' },
+      }}
+    />
   </Stack.Navigator>
 );
 
@@ -253,6 +267,18 @@ const StudentStackNavigator: React.FC = () => (
         headerTitleStyle: { fontWeight: '700', color: '#FFFFFF' },
       }}
     />
+    <Stack.Screen
+      name="NotificationSettings"
+      component={NotificationSettingsScreen}
+      options={{
+        title: 'Notification Settings',
+        headerShown: true,
+        presentation: 'card',
+        headerStyle: { backgroundColor: BRAND.bg },
+        headerTintColor: '#FFFFFF',
+        headerTitleStyle: { fontWeight: '700', color: '#FFFFFF' },
+      }}
+    />
   </Stack.Navigator>
 );
 
@@ -264,6 +290,17 @@ const Navigation: React.FC = () => {
   const { user, loading } = useAuth();
   const navigationRef = useNavigationContainerRef<any>();
   const responseListener = useRef<Notifications.Subscription | null>(null);
+
+  // Re-register push token whenever the app returns to foreground
+  useEffect(() => {
+    if (!user) return;
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        registerForPushNotificationsAsync().catch(() => {});
+      }
+    });
+    return () => sub.remove();
+  }, [user]);
 
   useEffect(() => {
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {

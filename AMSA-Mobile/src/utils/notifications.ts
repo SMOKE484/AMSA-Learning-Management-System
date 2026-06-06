@@ -3,7 +3,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { studentService } from '../services/student';
+import { api } from '../services/api';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -48,7 +48,7 @@ export async function registerForPushNotificationsAsync() {
     // Send to Backend
     if (token) {
       try {
-        await studentService.updatePushToken(token);
+        await api.put('/auth/push-token', { pushToken: token });
         console.log('Push token synced:', token);
       } catch (error) {
         console.error('Error syncing push token:', error);
@@ -59,4 +59,12 @@ export async function registerForPushNotificationsAsync() {
   }
 
   return token;
+}
+
+export async function removePushToken() {
+  try {
+    await api.put('/auth/push-token', { pushToken: null });
+  } catch (error) {
+    console.error('Error clearing push token:', error);
+  }
 }

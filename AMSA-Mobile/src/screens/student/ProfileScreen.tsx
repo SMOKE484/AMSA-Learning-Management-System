@@ -8,6 +8,7 @@ import {
 import { getAvatarUrl } from '../../utils/avatarUtils';
 import { getStoredAvatarSeed, saveAvatarSeed, AVATAR_SEEDS } from '../../utils/avatarStorage';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigation } from '@react-navigation/native';
 import { studentService } from '../../services/student';
 import { BlurView } from 'expo-blur';
 import { Icon } from '../../components/Icon';
@@ -48,6 +49,7 @@ const MenuItem: React.FC<{
 // ════════════════════════════════════════════════════════════════════════════
 const StudentProfileScreen = () => {
   const { user, logout } = useAuth();
+  const navigation = useNavigation<any>();
   const [profile, setProfile]           = useState<any>(null);
   const [loading, setLoading]           = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -193,6 +195,7 @@ const StudentProfileScreen = () => {
             label="Notifications"
             iconBg={BRAND.tealDim}
             iconColor={BRAND.teal}
+            onPress={() => navigation.navigate('NotificationSettings')}
           />
         </GlassCard>
 

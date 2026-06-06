@@ -147,7 +147,7 @@ const ParentProfileScreen = () => {
         <GlassCard style={s.sectionCard}>
           <MenuItem icon="person-outline"       label="Edit Profile"   iconBg={BRAND.tealDim}   iconColor={BRAND.teal}   onPress={() => handleComingSoon('Edit Profile')}   divider />
           <MenuItem icon="lock-closed-outline"  label="Change Password" iconBg={BRAND.blueDim}   iconColor={BRAND.blue}   onPress={() => handleComingSoon('Change Password')} divider />
-          <MenuItem icon="notifications-outline" label="Notifications"  iconBg={BRAND.yellowDim} iconColor={BRAND.yellow} onPress={() => handleComingSoon('Notifications')} />
+          <MenuItem icon="notifications-outline" label="Notifications"  iconBg={BRAND.yellowDim} iconColor={BRAND.yellow} onPress={() => navigation.navigate('NotificationSettings' as never)} />
         </GlassCard>
 
         {/* ── CHILDREN ──────────────────────────────────────────────────── */}
