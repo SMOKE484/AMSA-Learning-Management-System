@@ -240,7 +240,7 @@ const UploadMarks = () => {
                         >
                           <TableCell>
                             <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                              {student.user.name}
+                              {student.user?.name ?? 'Unknown'}
                             </Typography>
                           </TableCell>
                           <TableCell>

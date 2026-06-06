@@ -2,11 +2,11 @@
 // (Ensure you save this file with Capital 'C')
 
 import mongoose from "mongoose";
-import { PREDEFINED_SUBJECTS, PREDEFINED_GRADES } from "../config/academicConfig.js";
+import { PREDEFINED_GRADES } from "../config/academicConfig.js";
 
 const classScheduleSchema = new mongoose.Schema({
   tutor: { type: mongoose.Schema.Types.ObjectId, ref: "Tutor", required: true },
-  subject: { type: String, enum: PREDEFINED_SUBJECTS, required: true },
+  subject: { type: String, required: true },
   grade: { type: String, enum: PREDEFINED_GRADES, required: true },
   title: { type: String, required: true, trim: true },
   description: { type: String, trim: true, default: "" },

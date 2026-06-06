@@ -1,6 +1,6 @@
 // models/mark.js
 import mongoose from "mongoose";
-import { PREDEFINED_SUBJECTS, PREDEFINED_GRADES } from "../config/academicConfig.js";
+import { PREDEFINED_GRADES } from "../config/academicConfig.js";
 
 const markSchema = new mongoose.Schema(
   {
@@ -14,13 +14,9 @@ const markSchema = new mongoose.Schema(
       ref: "Tutor",
       required: true,
     },
-    subject: { 
-      type: String, 
-      required: true,
-      enum: PREDEFINED_SUBJECTS
-    },
-    grade: { 
-      type: String, 
+    subject: { type: String, required: true },
+    grade: {
+      type: String,
       required: true,
       enum: PREDEFINED_GRADES
     },

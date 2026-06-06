@@ -4,6 +4,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = 'https://amsa-learning-management-system-production.up.railway.app/api';
 
+let _onUnauthenticated: (() => void) | null = null;
+
+export const registerUnauthenticatedHandler = (handler: () => void) => {
+  _onUnauthenticated = handler;
+};
+
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -38,6 +44,9 @@ api.interceptors.response.use(
       message: error.message,
       code: error.code
     });
+    if (error.response?.status === 401) {
+      _onUnauthenticated?.();
+    }
     return Promise.reject(error);
   }
 );

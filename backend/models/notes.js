@@ -1,6 +1,6 @@
 // models/notes.js
 import mongoose from "mongoose";
-import { PREDEFINED_SUBJECTS, PREDEFINED_GRADES } from "../config/academicConfig.js";
+import { PREDEFINED_GRADES } from "../config/academicConfig.js";
 
 const Schema = mongoose.Schema;
 
@@ -22,13 +22,9 @@ const noteSchema = new Schema(
       ref: "Tutor",
       required: true,
     },
-    subject: { 
-      type: String, 
-      required: true,
-      enum: PREDEFINED_SUBJECTS
-    },
-    grade: { 
-      type: String, 
+    subject: { type: String, required: true },
+    grade: {
+      type: String,
       required: true,
       enum: PREDEFINED_GRADES
     },

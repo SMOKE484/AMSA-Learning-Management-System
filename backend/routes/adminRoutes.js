@@ -17,6 +17,10 @@ import {
   listAdmins,
   createAdmin,
   updateAdmin,
+  listSubjects,
+  createSubject,
+  updateSubject,
+  deleteSubject,
 } from "../controllers/adminController.js";
 import { authenticate, authorize } from "../middleware/authMiddleware.js";
 
@@ -45,5 +49,10 @@ router.put("/admins/:userId", updateAdmin);
 router.get("/marks", getAllMarks);
 router.delete("/marks/:markId", deleteMark);
 router.put("/marks/:markId", updateMark);
+
+router.get("/subjects", listSubjects);
+router.post("/subjects", createSubject);
+router.put("/subjects/:subjectId", updateSubject);
+router.delete("/subjects/:subjectId", deleteSubject);
 
 export default router;

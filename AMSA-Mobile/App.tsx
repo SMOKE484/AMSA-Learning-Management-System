@@ -25,6 +25,7 @@ import StudentNotesScreen from './src/screens/student/NotesScreen';
 import StudentMarksScreen from './src/screens/student/MarksScreen';
 import StudentProfileScreen from './src/screens/student/ProfileScreen';
 import CalendarScreen from './src/screens/student/CalendarScreen';
+import ClassDetailsScreen from './src/screens/student/ClassDetailsScreen';
 import StudentAttendanceScreen from './src/screens/student/AttendanceScreen';
 
 // Parent Screens
@@ -240,6 +241,18 @@ const StudentStackNavigator: React.FC = () => (
         headerTitleStyle: { fontWeight: '700', color: '#FFFFFF' },
       }}
     />
+    <Stack.Screen
+      name="ClassDetails"
+      component={ClassDetailsScreen}
+      options={{
+        title: 'Class Details',
+        headerShown: true,
+        presentation: 'card',
+        headerStyle: { backgroundColor: BRAND.bg },
+        headerTintColor: '#FFFFFF',
+        headerTitleStyle: { fontWeight: '700', color: '#FFFFFF' },
+      }}
+    />
   </Stack.Navigator>
 );
 
@@ -264,6 +277,11 @@ const Navigation: React.FC = () => {
           navigationRef.navigate('StudentApp', { screen: 'StudentTabs', params: { screen: 'Marks' } });
         else if (data.screen === 'Schedule' || data.screen === 'Calendar')
           navigationRef.navigate('StudentApp', { screen: 'Calendar' });
+        else if (data.screen === 'ClassDetails' && data.classId)
+          navigationRef.navigate('StudentApp', {
+            screen: 'ClassDetails',
+            params: { classId: data.classId, className: data.className },
+          });
         else if (data.screen === 'Dashboard')
           navigationRef.navigate('StudentApp', { screen: 'StudentTabs', params: { screen: 'Dashboard' } });
       } else if (user?.role === 'parent') {

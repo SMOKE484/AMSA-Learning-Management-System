@@ -3,6 +3,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../services/auth';
+import { registerUnauthenticatedHandler } from '../services/api';
 
 interface User {
   id: string;
@@ -98,6 +99,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Logout error:', error);
     }
   };
+
+  useEffect(() => {
+    registerUnauthenticatedHandler(logout);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const value = {
     user,

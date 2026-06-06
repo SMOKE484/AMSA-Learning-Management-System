@@ -5,6 +5,68 @@ import Tutor from "../models/tutor.js";
 import SchoolConfig from "../models/schoolConfig.js";
 import { NotificationService } from "../utils/notificationService.js";
 
+export const markStudentAttendance = async (req, res) => {
+  try {
+    const { classId } = req.params;
+    const { studentId, status, reason } = req.body;
+
+    const VALID_STATUSES = ['present', 'absent', 'late', 'excused'];
+    if (!status || !VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ message: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` });
+    }
+
+    if (!studentId) {
+      return res.status(400).json({ message: 'studentId is required' });
+    }
+
+    const classSchedule = await ClassSchedule.findById(classId);
+    if (!classSchedule) return res.status(404).json({ message: 'Class not found' });
+
+    // Tutors can only mark attendance for their own classes
+    if (req.role === 'tutor') {
+      if (!req.tutorId || classSchedule.tutor.toString() !== req.tutorId.toString()) {
+        return res.status(403).json({ message: 'You can only mark attendance for your own classes' });
+      }
+    }
+
+    // Verify the student is enrolled in this class
+    const isEnrolled = classSchedule.students.some(s => s.toString() === studentId.toString());
+    if (!isEnrolled) {
+      return res.status(403).json({ message: 'This student is not enrolled in the selected class' });
+    }
+
+    const student = await Student.findById(studentId);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    // Upsert: create or update attendance for this student in this class
+    const existing = await Attendance.findOne({ class: classId, student: studentId });
+
+    const attendance = await Attendance.findOneAndUpdate(
+      { class: classId, student: studentId },
+      {
+        $set: {
+          status,
+          isVerified: true,
+          autoMarked: false,
+          notes: reason || `Marked by ${req.role}`,
+          manualOverride: {
+            by: req.userId,
+            reason: reason || `Marked by ${req.role}`,
+            timestamp: new Date(),
+            originalStatus: existing?.status ?? null
+          }
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    res.json({ success: true, message: 'Attendance marked successfully', attendance });
+  } catch (error) {
+    console.error('markStudentAttendance error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const checkIn = async (req, res) => {
   try {
     const { classId } = req.params;

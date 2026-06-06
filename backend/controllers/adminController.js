@@ -5,6 +5,7 @@ import Tutor from "../models/tutor.js";
 import Mark from "../models/mark.js";
 import Attendance from "../models/attendance.js";
 import ClassSchedule from "../models/classSchedule.js";
+import Subject from "../models/subject.js";
 import bcrypt from "bcryptjs";
 import { invalidateTutorCache } from "../middleware/cacheMiddleware.js";
 import { PREDEFINED_SUBJECTS, PREDEFINED_GRADES } from "../config/academicConfig.js";
@@ -467,6 +468,70 @@ export const updateAdmin = async (req, res) => {
     if (!updated) return res.status(404).json({ message: "Admin not found" });
 
     res.json({ message: "Admin updated successfully", user: updated });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ===== SUBJECT MANAGEMENT =====
+
+export const listSubjects = async (req, res) => {
+  try {
+    const subjects = await Subject.find().sort({ name: 1 });
+    res.json({ subjects });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const createSubject = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: 'Subject name is required' });
+    }
+    const trimmed = name.trim();
+    const existing = await Subject.findOne({ name: { $regex: `^${trimmed}$`, $options: 'i' } });
+    if (existing) {
+      return res.status(400).json({ message: 'A subject with this name already exists' });
+    }
+    const subject = await new Subject({ name: trimmed }).save();
+    res.status(201).json({ message: 'Subject created', subject });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateSubject = async (req, res) => {
+  try {
+    const { subjectId } = req.params;
+    const { name, isActive } = req.body;
+
+    const subject = await Subject.findById(subjectId);
+    if (!subject) return res.status(404).json({ message: 'Subject not found' });
+
+    if (name !== undefined) {
+      const trimmed = name.trim();
+      if (!trimmed) return res.status(400).json({ message: 'Subject name cannot be empty' });
+      const conflict = await Subject.findOne({ name: { $regex: `^${trimmed}$`, $options: 'i' }, _id: { $ne: subjectId } });
+      if (conflict) return res.status(400).json({ message: 'A subject with this name already exists' });
+      subject.name = trimmed;
+    }
+    if (isActive !== undefined) subject.isActive = isActive;
+
+    await subject.save();
+    res.json({ message: 'Subject updated', subject });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const deleteSubject = async (req, res) => {
+  try {
+    const { subjectId } = req.params;
+    const subject = await Subject.findByIdAndDelete(subjectId);
+    if (!subject) return res.status(404).json({ message: 'Subject not found' });
+    res.json({ message: 'Subject deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

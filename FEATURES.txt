@@ -1,0 +1,177 @@
+================================================================
+AMSA LEARNING MANAGEMENT SYSTEM — PLANNED FEATURES
+================================================================
+Last updated: 2026-06-01
+Status key: [DONE] = implemented | [PLANNED] = not yet built
+================================================================
+
+
+----------------------------------------------------------------
+1. ADMIN — EDIT USER DETAILS                          [DONE]
+----------------------------------------------------------------
+Admin can now edit (not just create/delete) student, parent,
+and admin accounts from the web panel.
+
+- Edit student: name, email, grade, subjects
+- Edit parent: name, email
+- Manage Admins page: create, edit, delete admin accounts
+  (cannot delete your own account)
+
+Files changed:
+  backend/controllers/adminController.js
+  backend/routes/adminRoutes.js
+  react-admin-tutor-web/src/pages/Admin/ManageStudents.jsx
+  react-admin-tutor-web/src/pages/Admin/ManageParents.jsx
+  react-admin-tutor-web/src/pages/Admin/ManageAdmins.jsx  (new)
+  react-admin-tutor-web/src/components/layout/Sidebar.jsx
+  react-admin-tutor-web/src/App.jsx
+
+
+----------------------------------------------------------------
+2. AI CHATBOT (DeepSeek)                              [PLANNED]
+----------------------------------------------------------------
+A role-aware AI assistant powered by DeepSeek-V3 API,
+available in both the mobile app and admin web panel.
+
+WHO CAN USE IT:
+  - Students  — ask academic questions (maths, physics, etc.)
+                and query their own data (schedule, marks,
+                attendance)
+  - Parents   — ask about their child's progress
+  - Admins    — query school data and get summaries
+  - Tutors    — (via admin web panel)
+
+WHERE IT APPEARS:
+  - Mobile app: new "Chat" tab in student and parent navigators
+  - Admin web:  new "AI Assistant" page in sidebar
+
+HOW IT WORKS:
+  - Backend builds a role-specific system prompt with the
+    user's live data (marks, schedule, attendance, subjects)
+  - Full conversation history is sent with each message
+  - DeepSeek-V3 generates the response
+  - Math is written in plain text (x^2 not LaTeX) for
+    readability on mobile
+
+ESTIMATED COST: ~$3–8/month for 150 students (light usage)
+                ~$150/month at heavy daily usage (no PDFs)
+
+FILES TO CREATE/MODIFY:
+  backend/.env                               (add DEEPSEEK_API_KEY)
+  backend/controllers/chatController.js      (new)
+  backend/routes/chatRoutes.js               (new)
+  backend/server.js                          (register route)
+  AMSA-Mobile/src/services/chat.ts           (new)
+  AMSA-Mobile/src/screens/student/ChatScreen.tsx  (new)
+  AMSA-Mobile/src/screens/parent/ChatScreen.tsx   (new)
+  AMSA-Mobile/App.tsx                        (add Chat tab)
+  AMSA-Mobile/src/types/navigation.ts        (add Chat type)
+  react-admin-tutor-web/src/pages/Admin/AdminChat.jsx  (new)
+  react-admin-tutor-web/src/components/layout/Sidebar.jsx
+  react-admin-tutor-web/src/App.jsx
+
+
+----------------------------------------------------------------
+3. STUDENT ACTIVITY TRACKING                          [PLANNED]
+----------------------------------------------------------------
+Track when and how students use the app, so admins can
+identify disengaged students and parents can see if their
+child is studying.
+
+WHAT GETS TRACKED (silent, fire-and-forget — never blocks UI):
+  app_open    — student opens / brings app to foreground
+  app_close   — student closes app (includes session duration)
+  screen_view — student navigates to a tab (Notes, Marks, etc.)
+  note_view   — student opens a specific note
+  chat_message— student sends a chat message (count only)
+
+ADMIN WEB — new "Student Activity" page shows:
+  - Last active date per student
+  - Sessions this week
+  - Hours this week
+  - Study streak (consecutive days)
+  - Most used feature (Notes / Marks / Chat)
+  - Status chip: green (active today), yellow (2-3 days),
+                 red (4+ days inactive)
+  - Filter by grade, search by name, export CSV
+
+PARENT MOBILE — Children screen updated to show per child:
+  - "Last active: Today at 14:30" (or "2 days ago")
+  - "This week: 3.5 hrs · 6 sessions"
+  - Color dot indicator (green / yellow / red)
+
+COST: Free — pure MongoDB logging, no external API
+
+FILES TO CREATE/MODIFY:
+  backend/models/activityLog.js              (new)
+  backend/controllers/activityController.js  (new)
+  backend/routes/activityRoutes.js           (new)
+  backend/server.js                          (register route)
+  AMSA-Mobile/src/services/activity.ts       (new)
+  AMSA-Mobile/App.tsx                        (AppState + nav listeners)
+  AMSA-Mobile/src/screens/student/NotesScreen.tsx  (add note_view call)
+  AMSA-Mobile/src/screens/parent/ChildrenScreen.tsx (add activity summary)
+  react-admin-tutor-web/src/pages/Admin/StudentActivity.jsx  (new)
+  react-admin-tutor-web/src/components/layout/Sidebar.jsx
+  react-admin-tutor-web/src/App.jsx
+
+
+----------------------------------------------------------------
+4. WEEKLY AI PARENT REPORTS                           [PLANNED]
+----------------------------------------------------------------
+Every Friday at 18:00, the backend automatically generates
+a personalised AI summary for each student and sends it to
+their parent(s) via push notification and in-app message.
+
+WHAT THE REPORT INCLUDES:
+  App usage:
+    - Days logged into app / 5 school days
+    - Total study time in app (hours + minutes)
+    - Number of sessions
+    - Features used (Notes, Marks, Chat counts)
+
+  Class attendance (from existing Attendance model):
+    - Classes scheduled vs attended
+    - Late arrivals (with specific subject + date details,
+      e.g. "arrived late to Mathematics on Tuesday")
+    - Absences and early departures
+    - Overall attendance rate
+
+  Academic marks:
+    - Most recent test/exam results per subject
+
+  AI-generated advice:
+    - What went well this week
+    - Any concerns to be aware of
+    - 2 practical tips for how the parent can support
+      their child at home
+
+DELIVERY:
+  - Push notification to parent's device: "📊 Weekly report
+    for [child name] — tap to read"
+  - Stored as in-app notification (viewable in parent app
+    even without the push)
+  - New "Weekly Reports" screen in parent app for history
+
+COST: ~$0.50/month extra (150 DeepSeek calls/week)
+
+FILES TO CREATE/MODIFY:
+  backend/models/notification.js             (add weekly_summary type)
+  backend/jobs/weeklyReport.js               (new cron job)
+  backend/server.js                          (import cron job)
+  backend/.env                               (DEEPSEEK_API_KEY — shared
+                                              with chatbot feature)
+  AMSA-Mobile/src/screens/parent/WeeklyReportScreen.tsx  (new)
+  AMSA-Mobile/src/screens/parent/DashboardScreen.tsx     (add Reports link)
+  AMSA-Mobile/App.tsx                        (add WeeklyReport screen)
+  AMSA-Mobile/src/types/navigation.ts        (add WeeklyReport type)
+
+
+================================================================
+IMPLEMENTATION ORDER (recommended)
+================================================================
+1. Activity Tracking  (no external APIs, good foundation)
+2. AI Chatbot         (adds DeepSeek key, immediate student value)
+3. Weekly AI Reports  (builds on activity tracking + DeepSeek)
+
+================================================================

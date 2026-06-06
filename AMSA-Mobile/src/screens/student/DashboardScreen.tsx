@@ -19,8 +19,8 @@ import BouncingDotsLoader from '../../components/BouncingDotsLoader';
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
 import { BRAND } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
-
-
+
+
 
 // ─── Professional Alert ──────────────────────────────────────────────────────
 const ProfessionalAlert = ({
@@ -252,6 +252,7 @@ const StudentDashboardScreen = () => {
   };
 
   const handleCheckIn = async (classId: string) => {
+    if (checkingIn) return;
     try {
       setCheckingIn(classId);
       const { status } = await Location.requestForegroundPermissionsAsync();

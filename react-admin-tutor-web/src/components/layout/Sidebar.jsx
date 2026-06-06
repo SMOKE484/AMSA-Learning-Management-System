@@ -12,10 +12,11 @@ import PeopleIcon from '@mui/icons-material/People';
 import PersonIcon from '@mui/icons-material/Person';
 import SchoolIcon from '@mui/icons-material/School';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import BarChartIcon from '@mui/icons-material/BarChart'; // For Marks
+import BarChartIcon from '@mui/icons-material/BarChart';
 import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import BookIcon from '@mui/icons-material/Book';
 
 const drawerWidth = 260;
 
@@ -32,7 +33,8 @@ const Sidebar = () => {
     { text: 'Manage Admins', icon: <AdminPanelSettingsIcon />, path: '/admin/admins' },
     { text: 'Manage Schedules', icon: <CalendarMonthIcon />, path: '/admin/schedules' },
     { text: 'Attendance', icon: <FactCheckIcon />, path: '/admin/attendance' },
-    { text: 'Manage Marks', icon: <BarChartIcon />, path: '/admin/marks' }, // <--- NEW PAGE LINK
+    { text: 'Manage Marks', icon: <BarChartIcon />, path: '/admin/marks' },
+    { text: 'Manage Subjects', icon: <BookIcon />, path: '/admin/subjects' },
     { text: 'School Config', icon: <SchoolIcon />, path: '/admin/school-config' },
   ];
 

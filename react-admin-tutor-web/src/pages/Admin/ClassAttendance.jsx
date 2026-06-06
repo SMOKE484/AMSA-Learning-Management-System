@@ -3,81 +3,92 @@ import {
   Box, Typography, Paper, Grid, Card, CardContent,
   CircularProgress, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip,
-  FormControl, InputLabel, Select, MenuItem, Button, TextField
+  FormControl, InputLabel, Select, MenuItem, Button,
+  TextField, Collapse, Divider
 } from '@mui/material';
-import { 
+import {
   TrendingUp as TrendingUpIcon,
   People as PeopleIcon,
   Schedule as ScheduleIcon,
   Download as DownloadIcon,
-  FilterList as FilterListIcon
+  FilterList as FilterListIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import api from '../../services/apiService';
 import { useSnackbar } from '../../context/SnackbarContext';
 
+const STATUS_COLORS = {
+  present: 'success',
+  absent: 'error',
+  late: 'warning',
+  excused: 'info',
+  'left-early': 'warning'
+};
+
 const ClassAttendance = () => {
   const [attendanceData, setAttendanceData] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [allStudents, setAllStudents] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  // ---Filters ---
+
+  // Filters
   const [filterSubject, setFilterSubject] = useState('all');
   const [filterGrade, setFilterGrade] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all'); 
+  const [filterStatus, setFilterStatus] = useState('all');
   const [filterDate, setFilterDate] = useState('');
-
-  // Dropdown options
   const [subjects, setSubjects] = useState([]);
   const [grades, setGrades] = useState([]);
 
-  const [stats, setStats] = useState({
-    totalClasses: 0,
-    totalStudents: 0,
-    averageAttendance: 0,
-    completedClasses: 0
-  });
+  const [stats, setStats] = useState({ totalClasses: 0, totalStudents: 0, averageAttendance: 0, completedClasses: 0 });
+
+  // Mark Attendance section
+  const [markSectionOpen, setMarkSectionOpen] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState('');
+  const [markStatuses, setMarkStatuses] = useState({});
+  const [markingStudentId, setMarkingStudentId] = useState(null);
+  const [classAttendanceMap, setClassAttendanceMap] = useState({});
 
   const { showSnackbar } = useSnackbar();
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      const [schedulesRes, attendanceRes] = await Promise.all([
-        api.get('/schedules'),
-        api.get('/attendance/admin/all') 
+      const [schedulesRes, attendanceRes, studentsRes] = await Promise.all([
+        api.get('/schedules', { params: { limit: 200 } }),
+        api.get('/attendance/admin/all'),
+        api.get('/admin/students')
       ]);
 
-      const schedules = schedulesRes.data.schedules || [];
+      const scheduleList = schedulesRes.data.schedules || [];
       const records = attendanceRes.data || [];
+      const studentList = studentsRes.data.students || [];
 
+      setSchedules(scheduleList);
       setAttendanceData(records);
+      setAllStudents(studentList);
 
-      // Extract unique Subjects and Grades for filter dropdowns
-      const uniqueSubjects = [...new Set(schedules.map(s => s.subject))].sort();
-      const uniqueGrades = [...new Set(schedules.map(s => s.grade))].sort((a, b) => a - b);
-      
+      const uniqueSubjects = [...new Set(scheduleList.map(s => s.subject))].sort();
+      const uniqueGrades = [...new Set(scheduleList.map(s => s.grade))].sort((a, b) => a - b);
       setSubjects(uniqueSubjects);
       setGrades(uniqueGrades);
 
-      // --- Calculate Statistics ---
-      const completedClasses = schedules.filter(s => s.status === 'completed').length;
-      const totalStudents = schedules.reduce((sum, schedule) => 
-        sum + (schedule.students?.length || 0), 0
-      );
-      
+      const completedClasses = scheduleList.filter(s => s.status === 'completed').length;
+      const totalStudents = scheduleList.reduce((sum, s) => sum + (s.students?.length || 0), 0);
       const presentCount = records.filter(r => r.status === 'present').length;
-      const avgAttendance = records.length > 0 
-        ? Math.round((presentCount / records.length) * 100) 
-        : 0;
+      const avgAttendance = records.length > 0 ? Math.round((presentCount / records.length) * 100) : 0;
+      setStats({ totalClasses: scheduleList.length, totalStudents, averageAttendance: avgAttendance, completedClasses });
 
-      setStats({
-        totalClasses: schedules.length,
-        totalStudents,
-        averageAttendance: avgAttendance,
-        completedClasses
+      // Build a map of attendanceId keyed by `${classId}_${studentId}` for quick lookup
+      const map = {};
+      records.forEach(r => {
+        if (r.class?._id && r.student?._id) {
+          map[`${r.class._id}_${r.student._id}`] = r;
+        }
       });
-
+      setClassAttendanceMap(map);
     } catch (error) {
       console.error('Failed to fetch data:', error);
       showSnackbar('Failed to load attendance data.', 'error');
@@ -90,37 +101,65 @@ const ClassAttendance = () => {
     fetchData();
   }, []);
 
-  const getAttendanceStatusColor = (status) => {
-    const colors = {
-      present: 'success',
-      absent: 'error',
-      late: 'warning',
-      excused: 'info',
-      'left-early': 'warning'
-    };
-    return colors[status] || 'default';
+  // When a class is selected for marking, initialise statuses
+  const handleClassSelect = (classId) => {
+    setSelectedClassId(classId);
+    if (!classId) { setMarkStatuses({}); return; }
+    const cls = schedules.find(s => s._id === classId);
+    if (!cls) return;
+    const initial = {};
+    (cls.students || []).forEach(s => {
+      const studentId = s._id || s;
+      const existing = classAttendanceMap[`${classId}_${studentId}`];
+      initial[studentId] = existing?.status || 'present';
+    });
+    setMarkStatuses(initial);
   };
 
-  // --- UPDATED Filtering Logic ---
+  const handleMarkStudent = async (studentId) => {
+    if (!selectedClassId) return;
+    try {
+      setMarkingStudentId(studentId);
+      await api.post(`/attendance/classes/${selectedClassId}/mark-student`, {
+        studentId,
+        status: markStatuses[studentId] || 'present',
+        reason: 'Marked by admin'
+      });
+      showSnackbar('Attendance saved.', 'success');
+      // Refresh data to reflect change
+      fetchData();
+    } catch (err) {
+      showSnackbar(err.response?.data?.message || 'Failed to mark attendance.', 'error');
+    } finally {
+      setMarkingStudentId(null);
+    }
+  };
+
+  const getStudentName = (studentId) => {
+    const id = studentId?._id || studentId;
+    const found = allStudents.find(s => s._id === id?.toString());
+    return found?.user?.name || 'Unknown Student';
+  };
+
+  const getStudentGrade = (studentId) => {
+    const id = studentId?._id || studentId;
+    const found = allStudents.find(s => s._id === id?.toString());
+    return found?.grade ? `Grade ${found.grade}` : '—';
+  };
+
+  const selectedClass = schedules.find(s => s._id === selectedClassId);
+  const enrolledStudents = selectedClass?.students || [];
+
+  // Filtering logic
   const filteredAttendance = attendanceData.filter(record => {
     const classData = record.class || {};
-    
-    // 1. Filter by Subject
     const matchesSubject = filterSubject === 'all' || classData.subject === filterSubject;
-    
-    // 2. Filter by Grade
     const matchesGrade = filterGrade === 'all' || classData.grade === filterGrade;
-    
-    // 3. Filter by Status
     const matchesStatus = filterStatus === 'all' || record.status === filterStatus;
-
-    // 4. Filter by Date
     let matchesDate = true;
     if (filterDate && classData.scheduledDate) {
-      const recordDate = format(new Date(classData.scheduledDate), 'yyyy-MM-dd');
-      matchesDate = recordDate === filterDate;
+      matchesDate = format(new Date(classData.scheduledDate), 'yyyy-MM-dd') === filterDate;
     }
-
     return matchesSubject && matchesGrade && matchesStatus && matchesDate;
   });
 
@@ -200,57 +239,154 @@ const ClassAttendance = () => {
         </Grid>
       </Grid>
 
+      {/* ── Mark Attendance Section ── */}
+      <Paper sx={{ mb: 3, borderRadius: 2, overflow: 'hidden' }}>
+        <Box
+          sx={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            px: 3, py: 2, cursor: 'pointer', backgroundColor: '#f8fafc',
+            '&:hover': { backgroundColor: '#f1f5f9' }
+          }}
+          onClick={() => setMarkSectionOpen(o => !o)}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <EditIcon color="primary" />
+            <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
+              Mark Attendance for a Class
+            </Typography>
+          </Box>
+          {markSectionOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </Box>
+
+        <Collapse in={markSectionOpen}>
+          <Divider />
+          <Box sx={{ p: 3 }}>
+            <FormControl size="small" sx={{ minWidth: 340, mb: 3 }}>
+              <InputLabel>Select Class</InputLabel>
+              <Select
+                value={selectedClassId}
+                label="Select Class"
+                onChange={(e) => handleClassSelect(e.target.value)}
+              >
+                <MenuItem value=""><em>— Choose a class —</em></MenuItem>
+                {schedules.map(s => (
+                  <MenuItem key={s._id} value={s._id}>
+                    {s.subject} — Grade {s.grade} — {s.title} (
+                    {s.scheduledDate ? format(new Date(s.scheduledDate), 'MMM dd, yyyy') : 'No date'})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            {selectedClassId && enrolledStudents.length === 0 && (
+              <Typography variant="body2" color="text.secondary">
+                No students are enrolled in this class.
+              </Typography>
+            )}
+
+            {selectedClassId && enrolledStudents.length > 0 && (
+              <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: '#f8fafc' }}>
+                      <TableCell sx={{ fontWeight: 600 }}>Student</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Grade</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Current Status</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Mark As</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {enrolledStudents.map((s) => {
+                      const studentId = s._id || s;
+                      const strId = studentId?.toString();
+                      const existing = classAttendanceMap[`${selectedClassId}_${strId}`];
+                      return (
+                        <TableRow key={strId} hover>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              {getStudentName(studentId)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>{getStudentGrade(studentId)}</TableCell>
+                          <TableCell>
+                            {existing ? (
+                              <Chip
+                                label={existing.status}
+                                color={STATUS_COLORS[existing.status] || 'default'}
+                                size="small"
+                                sx={{ textTransform: 'capitalize' }}
+                              />
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">Not marked</Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={markStatuses[strId] || 'present'}
+                              onChange={(e) => setMarkStatuses(prev => ({ ...prev, [strId]: e.target.value }))}
+                              size="small"
+                              sx={{ minWidth: 120 }}
+                            >
+                              <MenuItem value="present">Present</MenuItem>
+                              <MenuItem value="absent">Absent</MenuItem>
+                              <MenuItem value="late">Late</MenuItem>
+                              <MenuItem value="excused">Excused</MenuItem>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="contained"
+                              size="small"
+                              disabled={markingStudentId === strId}
+                              onClick={() => handleMarkStudent(strId)}
+                              sx={{ fontWeight: 600, borderRadius: 1 }}
+                            >
+                              {markingStudentId === strId ? 'Saving...' : 'Save'}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Box>
+        </Collapse>
+      </Paper>
+
       {/* Filters Bar */}
       <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
         <Grid container spacing={2} alignItems="center">
-          
-          {/* Subject Filter */}
           <Grid item xs={12} sm={6} md={2}>
             <FormControl fullWidth size="small">
               <InputLabel>Subject</InputLabel>
-              <Select
-                value={filterSubject}
-                label="Subject"
-                onChange={(e) => setFilterSubject(e.target.value)}
-              >
+              <Select value={filterSubject} label="Subject" onChange={(e) => setFilterSubject(e.target.value)}>
                 <MenuItem value="all">All Subjects</MenuItem>
                 {subjects.map((subject) => (
-                  <MenuItem key={subject} value={subject}>
-                    {subject}
-                  </MenuItem>
+                  <MenuItem key={subject} value={subject}>{subject}</MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Grid>
 
-          {/* Grade Filter */}
           <Grid item xs={12} sm={6} md={2}>
             <FormControl fullWidth size="small">
               <InputLabel>Grade</InputLabel>
-              <Select
-                value={filterGrade}
-                label="Grade"
-                onChange={(e) => setFilterGrade(e.target.value)}
-              >
+              <Select value={filterGrade} label="Grade" onChange={(e) => setFilterGrade(e.target.value)}>
                 <MenuItem value="all">All Grades</MenuItem>
                 {grades.map((grade) => (
-                  <MenuItem key={grade} value={grade}>
-                    Grade {grade}
-                  </MenuItem>
+                  <MenuItem key={grade} value={grade}>Grade {grade}</MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Grid>
 
-          {/* Status Filter (NEW) */}
           <Grid item xs={12} sm={6} md={2}>
             <FormControl fullWidth size="small">
               <InputLabel>Status</InputLabel>
-              <Select
-                value={filterStatus}
-                label="Status"
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
+              <Select value={filterStatus} label="Status" onChange={(e) => setFilterStatus(e.target.value)}>
                 <MenuItem value="all">All Statuses</MenuItem>
                 <MenuItem value="present">Present</MenuItem>
                 <MenuItem value="absent">Absent</MenuItem>
@@ -259,35 +395,24 @@ const ClassAttendance = () => {
               </Select>
             </FormControl>
           </Grid>
-          
-          {/* Date Filter */}
+
           <Grid item xs={12} sm={6} md={3}>
             <TextField
-              fullWidth
-              size="small"
-              label="Date"
-              type="date"
+              fullWidth size="small" label="Date" type="date"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
 
-          {/* Clear Button */}
           <Grid item xs={12} md={3}>
-             <Button 
-               variant="outlined" 
-               fullWidth
-               onClick={() => { 
-                 setFilterSubject('all'); 
-                 setFilterGrade('all'); 
-                 setFilterStatus('all'); 
-                 setFilterDate(''); 
-               }}
-               startIcon={<FilterListIcon />}
-             >
-               Clear Filters
-             </Button>
+            <Button
+              variant="outlined" fullWidth
+              onClick={() => { setFilterSubject('all'); setFilterGrade('all'); setFilterStatus('all'); setFilterDate(''); }}
+              startIcon={<FilterListIcon />}
+            >
+              Clear Filters
+            </Button>
           </Grid>
         </Grid>
       </Paper>
@@ -318,37 +443,29 @@ const ClassAttendance = () => {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={record.class?.subject || 'N/A'} 
-                      size="small" 
-                      variant="outlined"
-                    />
+                    <Chip label={record.class?.subject || 'N/A'} size="small" variant="outlined" />
                   </TableCell>
+                  <TableCell>{record.class?.grade || record.student?.grade || 'N/A'}</TableCell>
                   <TableCell>
-                    {record.class?.grade || record.student?.grade || 'N/A'}
-                  </TableCell>
-                  <TableCell>
-                    {record.class?.scheduledDate 
+                    {record.class?.scheduledDate
                       ? format(new Date(record.class.scheduledDate), 'MMM dd, yyyy')
                       : 'N/A'}
                   </TableCell>
                   <TableCell>
                     {record.checkIn?.time ? (
-                      <Chip 
-                        label={format(new Date(record.checkIn.time), 'HH:mm')} 
-                        size="small" 
-                        color="success"
-                        variant="outlined" 
+                      <Chip
+                        label={format(new Date(record.checkIn.time), 'HH:mm')}
+                        size="small" color="success" variant="outlined"
                       />
                     ) : (
                       <Typography variant="caption" color="text.secondary">-</Typography>
                     )}
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={record.status} 
-                      color={getAttendanceStatusColor(record.status)} 
-                      size="small" 
+                    <Chip
+                      label={record.status}
+                      color={STATUS_COLORS[record.status] || 'default'}
+                      size="small"
                       sx={{ textTransform: 'capitalize' }}
                     />
                   </TableCell>

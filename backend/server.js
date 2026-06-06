@@ -55,6 +55,18 @@ mongoose
     }
 
     try {
+      const Subject = (await import('./models/subject.js')).default;
+      const { PREDEFINED_SUBJECTS } = await import('./config/academicConfig.js');
+      const count = await Subject.countDocuments();
+      if (count === 0) {
+        await Subject.insertMany(PREDEFINED_SUBJECTS.map(name => ({ name })));
+        console.log('Subjects seeded from default list');
+      }
+    } catch (error) {
+      console.log('Subject seeding failed:', error.message);
+    }
+
+    try {
       const { AttendanceJobs } = await import('./jobs/attendanceJobs.js');
       const { NotificationJobs } = await import('./jobs/notificationJobs.js');
       

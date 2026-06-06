@@ -1,0 +1,12 @@
+0000000000000000000000000000000000000000 8eb39826384b000e8b96380539ba750752dc4910 VhulendaSmoke <vhulendamashamba4@gmail.com> 1769037089 +0200	commit (initial): first backend push
+8eb39826384b000e8b96380539ba750752dc4910 1a73c46906c55985b22d2481c6cfd398d0959e29 VhulendaSmoke <vhulendamashamba4@gmail.com> 1769037214 +0200	commit: Admin Frontend
+1a73c46906c55985b22d2481c6cfd398d0959e29 fb90b0aa3287ff8a9c0401e3a605268b00d19cd0 VhulendaSmoke <vhulendamashamba4@gmail.com> 1769072554 +0200	commit: Fix: add missing multer dependency
+fb90b0aa3287ff8a9c0401e3a605268b00d19cd0 caa3f0fafbbce6a1e4d9d262aeb92a6cbc31d5ae VhulendaSmoke <vhulendamashamba4@gmail.com> 1769072694 +0200	pull origin main --no-rebase: Merge made by the 'ort' strategy.
+caa3f0fafbbce6a1e4d9d262aeb92a6cbc31d5ae f5149ebe30152b79940abacabe702689c538d838 VhulendaSmoke <vhulendamashamba4@gmail.com> 1772211400 +0200	commit: Add AMSA Mobile Expo app
+f5149ebe30152b79940abacabe702689c538d838 64e82b4f733b529d254d0f1568a6dd0050ffadcf VhulendaSmoke <vhulendamashamba4@gmail.com> 1772211520 +0200	commit: Update backend .gitignore
+64e82b4f733b529d254d0f1568a6dd0050ffadcf 891d9b053f33d76e3a67d41524dd569fa9e75ced VhulendaSmoke <vhulendamashamba4@gmail.com> 1772211542 +0200	pull --rebase origin main (finish): refs/heads/main onto 082b8ca11306b75f4f10330ea1a55c975de96c9b
+891d9b053f33d76e3a67d41524dd569fa9e75ced 7407c94b8f5f71f44be5d3620832b6ca811b83c4 VhulendaSmoke <vhulendamashamba4@gmail.com> 1772701200 +0200	commit: Add EAS CI/CD workflow
+7407c94b8f5f71f44be5d3620832b6ca811b83c4 e4c88c5893d6c49dca60c3c390b86bdd66b2ad9f VhulendaSmoke <vhulendamashamba4@gmail.com> 1777831300 +0200	commit: Fix parent screen bugs and add attendance endpoint
+e4c88c5893d6c49dca60c3c390b86bdd66b2ad9f c8cc58a1e591c847106da3b06926fa1f311e07d0 VhulendaSmoke <vhulendamashamba4@gmail.com> 1777832139 +0200	commit: added delete buttons
+c8cc58a1e591c847106da3b06926fa1f311e07d0 54953b92c7ab7da288a01e9c51b198e2a814d350 VhulendaSmoke <vhulendamashamba4@gmail.com> 1777832194 +0200	commit: added delete functionality
+54953b92c7ab7da288a01e9c51b198e2a814d350 d820e2f77076dddb940a44d15bd0d2a0c56b545c VhulendaSmoke <vhulendamashamba4@gmail.com> 1777832216 +0200	pull: Merge made by the 'ort' strategy.

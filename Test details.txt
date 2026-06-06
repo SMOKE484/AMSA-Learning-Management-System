@@ -1,0 +1,32 @@
+TUTOR
+email:"tutor@test.com",
+password:"password123",
+user:"68f9866a1094a67e612aeac0",
+_id:"68f9866a1094a67e612aeac2",
+"tutor_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGY5ODY2YTEwOTRhNjdlNjEyYWVhYzAiLCJyb2xlIjoidHV0b3IiLCJlbWFpbCI6InR1dG9yQHRlc3QuY29tIiwiaWF0IjoxNzYxMTg0MDU0LCJleHAiOjE3NjE3ODg4NTR9.PwvH3IlRoghSKuUUtahbsbWNPypCkra5d_jtLJEQcGo",
+
+
+
+
+PARENT
+"name": "Lily Potter",
+"email": "parent@test.com",
+"password": password123
+"role": "parent",
+"_id": "68f9873b1094a67e612aeac5",
+"parent_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGY5ODczYjEwOTRhNjdlNjEyYWVhYzUiLCJyb2xlIjoicGFyZW50IiwiZW1haWwiOiJwYXJlbnRAdGVzdC5jb20iLCJpYXQiOjE3NjExODQyMTAsImV4cCI6MTc2MTc4OTAxMH0.RM1SC07yXCF317-rT-0gRkGFtjJjYUoA73LckhUVUXk",
+
+
+STUDENT
+"name": "Harry Potter",
+"email": "student@test.com",
+"password": "password123",
+"_id": "68f987fc1094a67e612aeaca",
+"user": "68f987fc1094a67e612aeac8",
+"student_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OGY5ODdmYzEwOTRhNjdlNjEyYWVhYzgiLCJyb2xlIjoic3R1ZGVudCIsImVtYWlsIjoic3R1ZGVudEB0ZXN0LmNvbSIsImlhdCI6MTc2MTE4NDE2MiwiZXhwIjoxNzYxNzg4OTYyfQ.2OMn1MTorxwFGvWiot5t6IW3vWNYiyzSN6ksb2Dl-7Q",
+
+
+ADMIN
+"Vhulenda"
+"admin@gmail.com"
+"password": "admin123",
