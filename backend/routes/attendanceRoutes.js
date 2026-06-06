@@ -8,6 +8,7 @@ const router = express.Router();
 router.post('/classes/:classId/check-in', authenticate, authorize(['student']), validateGeoLocation, checkIn);
 router.post('/classes/:classId/check-out', authenticate, authorize(['student']), checkOut);
 router.get('/classes/:classId/attendance', authenticate, authorize(['student']), getClassAttendance);
+router.get('/classes/:classId/me', authenticate, authorize(['student']), getClassAttendance);
 router.get('/my-attendance', authenticate, authorize(['student']), getAttendanceHistory);
 
 router.get('/classes/:classId/report', authenticate, authorize(['tutor']), getClassReport);
