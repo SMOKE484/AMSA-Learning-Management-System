@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Notification from "../models/notification.js";
 import ClassSchedule from "../models/classSchedule.js";
 import User from "../models/user.js";
+import Student from "../models/student.js";
 import Tutor from "../models/tutor.js"; // Needed for permissions check
 import { NotificationService } from "../utils/notificationService.js";
 
@@ -252,7 +253,7 @@ export const deleteNotification = async (req, res) => {
 // Send announcement to all students, parents, or both (admin only)
 export const sendAnnouncement = async (req, res) => {
   try {
-    const { title, message, target, priority = "normal" } = req.body;
+    const { title, message, target, priority = "normal", grades } = req.body;
 
     if (!title || !message || !target) {
       return res.status(400).json({ message: "title, message, and target are required" });
@@ -263,17 +264,36 @@ export const sendAnnouncement = async (req, res) => {
       return res.status(400).json({ message: "target must be 'students', 'parents', or 'both'" });
     }
 
-    const roles = target === "students" ? ["student"]
-                : target === "parents"  ? ["parent"]
-                : ["student", "parent"];
+    const hasGradeFilter = Array.isArray(grades) && grades.length > 0;
 
-    const users = await User.find({ role: { $in: roles } }).select("_id role");
+    let recipientDocs = []; // [{ _id, role }]
 
-    if (users.length === 0) {
+    if (hasGradeFilter) {
+      // Find students in the selected grades, populate parent IDs
+      const students = await Student.find({ grade: { $in: grades } }).select("user parents");
+
+      const studentUserIds   = students.map(s => s.user);
+      const parentUserIds    = [...new Set(students.flatMap(s => s.parents.map(p => p.toString())))];
+
+      const idsToFetch = [];
+      if (target === "students" || target === "both") idsToFetch.push(...studentUserIds);
+      if (target === "parents"  || target === "both") idsToFetch.push(...parentUserIds);
+
+      // Deduplicate and fetch user docs (to get the role field for recipientType)
+      const uniqueIds = [...new Set(idsToFetch.map(id => id.toString()))];
+      recipientDocs = await User.find({ _id: { $in: uniqueIds } }).select("_id role");
+    } else {
+      const roles = target === "students" ? ["student"]
+                  : target === "parents"  ? ["parent"]
+                  : ["student", "parent"];
+      recipientDocs = await User.find({ role: { $in: roles } }).select("_id role");
+    }
+
+    if (recipientDocs.length === 0) {
       return res.json({ message: "No recipients found", notificationsSent: 0 });
     }
 
-    const notificationDocs = users.map(u => ({
+    const notificationDocs = recipientDocs.map(u => ({
       recipient: u._id,
       recipientType: u.role,
       title,

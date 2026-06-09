@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, TextField, Button, Paper, CircularProgress,
   FormControl, InputLabel, Select, MenuItem, Divider, Chip, List,
@@ -7,6 +7,7 @@ import {
 import CampaignIcon from '@mui/icons-material/Campaign';
 import SendIcon from '@mui/icons-material/Send';
 import api from '../../services/apiService';
+import { academicService } from '../../services/academicService';
 import { useSnackbar } from '../../context/SnackbarContext';
 
 const Announcements = () => {
@@ -16,12 +17,26 @@ const Announcements = () => {
     target: 'both',
     priority: 'normal',
   });
+  const [selectedGrades, setSelectedGrades] = useState([]); // [] = all grades
+  const [grades, setGrades] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState([]);
   const { showSnackbar } = useSnackbar();
 
+  useEffect(() => {
+    academicService.getGrades()
+      .then(g => setGrades(g))
+      .catch(() => setGrades([8, 9, 10, 11, 12]));
+  }, []);
+
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const toggleGrade = (grade) => {
+    setSelectedGrades(prev =>
+      prev.includes(grade) ? prev.filter(g => g !== grade) : [...prev, grade]
+    );
   };
 
   const handleSend = async () => {
@@ -31,7 +46,11 @@ const Announcements = () => {
     }
     try {
       setLoading(true);
-      const res = await api.post('/notifications/announcement', formData);
+      const payload = {
+        ...formData,
+        ...(selectedGrades.length > 0 && { grades: selectedGrades.map(String) }),
+      };
+      const res = await api.post('/notifications/announcement', payload);
       showSnackbar(`${res.data.message}`, 'success');
       setSent(prev => [
         {
@@ -39,12 +58,14 @@ const Announcements = () => {
           message: formData.message,
           target: formData.target,
           priority: formData.priority,
+          grades: selectedGrades,
           sentAt: new Date().toISOString(),
           count: res.data.notificationsSent,
         },
         ...prev,
       ]);
       setFormData({ title: '', message: '', target: 'both', priority: 'normal' });
+      setSelectedGrades([]);
     } catch (err) {
       showSnackbar(err.response?.data?.message || 'Failed to send announcement.', 'error');
     } finally {
@@ -116,6 +137,36 @@ const Announcements = () => {
           </FormControl>
         </Box>
 
+        {/* ── Grade Filter ── */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="body2" fontWeight={600} color="text.secondary" mb={1}>
+            Grades
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Chip
+              label="All Grades"
+              onClick={() => setSelectedGrades([])}
+              color={selectedGrades.length === 0 ? 'primary' : 'default'}
+              variant={selectedGrades.length === 0 ? 'filled' : 'outlined'}
+              sx={{ fontWeight: 600 }}
+            />
+            {grades.map(g => (
+              <Chip
+                key={g}
+                label={`Grade ${g}`}
+                onClick={() => toggleGrade(g)}
+                color={selectedGrades.includes(g) ? 'primary' : 'default'}
+                variant={selectedGrades.includes(g) ? 'filled' : 'outlined'}
+              />
+            ))}
+          </Box>
+          {selectedGrades.length > 0 && (
+            <Typography variant="caption" color="text.disabled" mt={0.5} display="block">
+              Sending to Grade {selectedGrades.sort((a, b) => a - b).join(', ')} only
+            </Typography>
+          )}
+        </Box>
+
         <Button
           variant="contained"
           size="large"
@@ -147,6 +198,10 @@ const Announcements = () => {
                       <Typography fontWeight={600}>{item.title}</Typography>
                       <Chip label={targetLabel[item.target]} size="small" variant="outlined" />
                       <Chip label={item.priority} size="small" color={priorityColor[item.priority]} />
+                      {item.grades.length > 0
+                        ? <Chip label={`Gr ${item.grades.sort((a,b) => a-b).join(', ')}`} size="small" color="secondary" variant="outlined" />
+                        : <Chip label="All grades" size="small" variant="outlined" />
+                      }
                       <Chip label={`${item.count} sent`} size="small" color="success" variant="outlined" />
                     </Box>
                   }
