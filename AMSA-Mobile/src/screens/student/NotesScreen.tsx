@@ -1,24 +1,23 @@
 // src/screens/student/NotesScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, RefreshControl, ActivityIndicator, Platform,
+  TextInput, Alert, RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { studentService, Note } from '../../services/student';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { BrandPalette, BRAND } from '../../components/theme';
 import { Icon } from '../../components/Icon';
 import * as WebBrowser from 'expo-web-browser';
 import * as Sharing from 'expo-sharing';
 import BouncingDotsLoader from '../../components/BouncingDotsLoader';
 // @ts-ignore
 import * as FileSystem from 'expo-file-system/legacy';
-import { BlurView } from 'expo-blur';
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
-import { BRAND } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
-
 
-// ─── Subject maps ─────────────────────────────────────────────────────────────
+// Accent colors are identical in both themes — safe as module-level constants
 const SUBJECT_COLORS: Record<string, string> = {
   'Mathematics':          BRAND.blue,
   'Physics':              '#8b5cf6',
@@ -51,7 +50,50 @@ const SUBJECT_ICONS: Record<string, string> = {
 };
 const getColor = (s: string) => SUBJECT_COLORS[s] || BRAND.blue;
 const getIcon  = (s: string) => SUBJECT_ICONS[s]  || 'document-text';
-
+
+const makeStyles = (colors: BrandPalette) => StyleSheet.create({
+  container:  { flex: 1, backgroundColor: colors.bg },
+  loadingWrap:{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
+  loadingText:{ marginTop: 12, fontSize: 15, color: colors.textSecondary },
+
+  header:           { backgroundColor: colors.surface, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerAccentRow:  { flexDirection: 'row', height: 3 },
+  headerAccentDash: { flex: 1 },
+  headerContent:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 56 },
+  title:            { fontSize: 28, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
+  subtitle:         { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+  headerIconCluster:{ flexDirection: 'row', alignItems: 'center' },
+
+  searchOuter: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 },
+  searchCard:  { borderRadius: 16 },
+  searchRow:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
+  searchInput: { flex: 1, fontSize: 15, color: colors.textPrimary },
+
+  filterScroll:  { maxHeight: 52, marginTop: 10 },
+  filterContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
+  chip:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, gap: 6 },
+  chipDot:       { width: 6, height: 6, borderRadius: 3 },
+  chipText:      { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+
+  list:        { flex: 1 },
+  listContent: { paddingHorizontal: 16, paddingTop: 14 },
+  noteCard:    { marginBottom: 12 },
+  noteInner:   { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
+  iconWrap:    { width: 50, height: 50, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, flexShrink: 0 },
+  noteBody:    { flex: 1, gap: 4 },
+  noteTitle:   { fontSize: 15, fontWeight: '700', color: colors.textPrimary, letterSpacing: -0.2 },
+  noteTagRow:  { flexDirection: 'row' },
+  subjectTag:  { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1 },
+  subjectTagText:{ fontSize: 11, fontWeight: '700', letterSpacing: 0.2 },
+  noteDesc:    { fontSize: 12, color: colors.textSecondary },
+  noteMeta:    { fontSize: 11, color: colors.textMuted },
+  dlBtn:       { width: 40, height: 40, borderRadius: 14, borderWidth: 1, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
+
+  empty:        { alignItems: 'center', paddingVertical: 60 },
+  emptyIconRing:{ width: 80, height: 80, borderRadius: 40, borderWidth: 1, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  emptyTitle:   { fontSize: 16, fontWeight: '600', color: colors.textSecondary, textAlign: 'center' },
+  emptySub:     { fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: 4 },
+});
 
 // ════════════════════════════════════════════════════════════════════════════
 // SCREEN
@@ -65,8 +107,9 @@ const StudentNotesScreen = () => {
   const [refreshing,     setRefreshing]     = useState(false);
   const [downloadingId,  setDownloadingId]  = useState<string | null>(null);
   const { logout } = useAuth();
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
 
-  // ── data ──────────────────────────────────────────────────────────────────
   const loadNotes = async () => {
     try {
       const res = await studentService.getNotes();
@@ -91,14 +134,13 @@ const StudentNotesScreen = () => {
     setFilteredNotes(f);
   }, [searchQuery, selectedFilter, notes]);
 
-  // ── actions ───────────────────────────────────────────────────────────────
   const handleOpenNote = async (note: Note) => {
     if (!note.fileUrl) { Alert.alert('No File', 'No file attached'); return; }
     try {
       await WebBrowser.openBrowserAsync(note.fileUrl, {
         presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
-        controlsColor: BRAND.red,
-        toolbarColor: BRAND.surface,
+        controlsColor: colors.red,
+        toolbarColor: colors.surface,
       });
     } catch { Alert.alert('Error', 'Failed to open note viewer'); }
   };
@@ -121,22 +163,20 @@ const StudentNotesScreen = () => {
   const uniqueSubjects = ['All', ...Array.from(new Set(notes.map(n => n.subject)))];
   const BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_OFFSET + 16;
 
-  // ── loading ───────────────────────────────────────────────────────────────
   if (loading) return (
-  <View style={s.loadingWrap}>
-    <BouncingDotsLoader size={20} />
-    <Text style={s.loadingText}>Loading notes…</Text>
-  </View>
-);
+    <View style={s.loadingWrap}>
+      <BouncingDotsLoader size={20} />
+      <Text style={s.loadingText}>Loading notes…</Text>
+    </View>
+  );
 
-  // ── render ────────────────────────────────────────────────────────────────
   return (
     <View style={s.container}>
 
       {/* ── HEADER ─────────────────────────────────────────────────────── */}
       <View style={s.header}>
         <View style={s.headerAccentRow}>
-          {[BRAND.red, BRAND.yellow, BRAND.teal, BRAND.blue].map((c, i) => (
+          {[colors.red, colors.yellow, colors.teal, colors.blue].map((c, i) => (
             <View key={i} style={[s.headerAccentDash, { backgroundColor: c }]} />
           ))}
         </View>
@@ -145,9 +185,8 @@ const StudentNotesScreen = () => {
             <Text style={s.title}>My Notes</Text>
             <Text style={s.subtitle}>{notes.length} document{notes.length !== 1 ? 's' : ''} available</Text>
           </View>
-          {/* decorative chevron-inspired icon cluster */}
           <View style={s.headerIconCluster}>
-            {[BRAND.red, BRAND.yellow, BRAND.teal].map((c, i) => (
+            {[colors.red, colors.yellow, colors.teal].map((c, i) => (
               <Icon key={i} name="chevron-forward" size={18} color={c}
                 style={{ marginLeft: i === 0 ? 0 : -8, opacity: 1 - i * 0.25 }} />
             ))}
@@ -159,17 +198,17 @@ const StudentNotesScreen = () => {
       <View style={s.searchOuter}>
         <GlassCard style={s.searchCard}>
           <View style={s.searchRow}>
-            <Icon name="search" size={18} color={BRAND.textSecondary} />
+            <Icon name="search" size={18} color={colors.textSecondary} />
             <TextInput
               style={s.searchInput}
               placeholder="Search by title or subject…"
-              placeholderTextColor={BRAND.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Icon name="close-circle" size={18} color={BRAND.textMuted} />
+                <Icon name="close-circle" size={18} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
@@ -177,22 +216,14 @@ const StudentNotesScreen = () => {
       </View>
 
       {/* ── FILTER CHIPS ───────────────────────────────────────────────── */}
-      <ScrollView
-        horizontal showsHorizontalScrollIndicator={false}
-        style={s.filterScroll} contentContainerStyle={s.filterContent}
-      >
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filterScroll} contentContainerStyle={s.filterContent}>
         {uniqueSubjects.map(f => {
           const active = selectedFilter === f;
-          const color  = f === 'All' ? BRAND.red : getColor(f);
+          const color  = f === 'All' ? colors.red : getColor(f);
           return (
             <TouchableOpacity
               key={f}
-              style={[
-                s.chip,
-                active
-                  ? { backgroundColor: color, borderColor: color }
-                  : { backgroundColor: BRAND.surface, borderColor: BRAND.border },
-              ]}
+              style={[s.chip, active ? { backgroundColor: color, borderColor: color } : { backgroundColor: colors.surface, borderColor: colors.border }]}
               onPress={() => setSelectedFilter(f)}
             >
               {f !== 'All' && !active && (
@@ -213,26 +244,19 @@ const StudentNotesScreen = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={async () => { setRefreshing(true); await loadNotes(); setRefreshing(false); }}
-            tintColor={BRAND.red} colors={[BRAND.red]}
+            tintColor={colors.red} colors={[colors.red]}
           />
         }
       >
         {filteredNotes.length > 0 ? filteredNotes.map(note => {
           const color = getColor(note.subject);
           return (
-            <TouchableOpacity
-              key={note._id}
-              activeOpacity={0.8}
-              onPress={() => handleOpenNote(note)}
-            >
+            <TouchableOpacity key={note._id} activeOpacity={0.8} onPress={() => handleOpenNote(note)}>
               <GlassCard accentColor={color} style={s.noteCard}>
                 <View style={s.noteInner}>
-                  {/* Subject icon */}
                   <View style={[s.iconWrap, { backgroundColor: color + '22', borderColor: color + '44' }]}>
                     <Icon name={getIcon(note.subject) as any} size={24} color={color} />
                   </View>
-
-                  {/* Content */}
                   <View style={s.noteBody}>
                     <Text style={s.noteTitle} numberOfLines={1}>{note.title}</Text>
                     <View style={s.noteTagRow}>
@@ -240,27 +264,21 @@ const StudentNotesScreen = () => {
                         <Text style={[s.subjectTagText, { color }]}>{note.subject}</Text>
                       </View>
                     </View>
-                    {note.description ? (
-                      <Text style={s.noteDesc} numberOfLines={1}>{note.description}</Text>
-                    ) : null}
+                    {note.description ? <Text style={s.noteDesc} numberOfLines={1}>{note.description}</Text> : null}
                     <Text style={s.noteMeta}>
-                      {new Date(note.createdAt).toLocaleDateString('en-ZA', {
-                        day: 'numeric', month: 'short', year: 'numeric',
-                      })}
+                      {new Date(note.createdAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
                       {note.tutor?.user?.name ? `  ·  ${note.tutor.user.name}` : ''}
                     </Text>
                   </View>
-
-                  {/* Download */}
                   {note.fileUrl && (
                     <TouchableOpacity
-                      style={[s.dlBtn, { backgroundColor: BRAND.blue + '22', borderColor: BRAND.blue + '55' }]}
+                      style={[s.dlBtn, { backgroundColor: colors.blue + '22', borderColor: colors.blue + '55' }]}
                       onPress={() => handleDownload(note)}
                       disabled={downloadingId === note._id}
                     >
                       {downloadingId === note._id
-                        ? <ActivityIndicator size="small" color={BRAND.blue} />
-                        : <Icon name="cloud-download-outline" size={20} color={BRAND.blue} />
+                        ? <ActivityIndicator size="small" color={colors.blue} />
+                        : <Icon name="cloud-download-outline" size={20} color={colors.blue} />
                       }
                     </TouchableOpacity>
                   )}
@@ -270,8 +288,8 @@ const StudentNotesScreen = () => {
           );
         }) : (
           <View style={s.empty}>
-            <View style={[s.emptyIconRing, { borderColor: BRAND.border }]}>
-              <Icon name="document-text-outline" size={40} color={BRAND.textMuted} />
+            <View style={[s.emptyIconRing, { borderColor: colors.border }]}>
+              <Icon name="document-text-outline" size={40} color={colors.textMuted} />
             </View>
             <Text style={s.emptyTitle}>
               {notes.length === 0 ? 'No notes available yet' : 'No notes match your search'}
@@ -285,55 +303,5 @@ const StudentNotesScreen = () => {
     </View>
   );
 };
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  container:  { flex: 1, backgroundColor: BRAND.bg },
-  loadingWrap:{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.bg },
-  loadingText:{ marginTop: 12, fontSize: 15, color: BRAND.textSecondary },
-
-  // Header
-  header:           { backgroundColor: BRAND.surface, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: BRAND.border },
-  headerAccentRow:  { flexDirection: 'row', height: 3 },
-  headerAccentDash: { flex: 1 },
-  headerContent:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 56 },
-  title:            { fontSize: 28, fontWeight: '800', color: BRAND.textPrimary, letterSpacing: -0.5 },
-  subtitle:         { fontSize: 13, color: BRAND.textSecondary, marginTop: 4 },
-  headerIconCluster:{ flexDirection: 'row', alignItems: 'center' },
-
-  // Search
-  searchOuter: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 },
-  searchCard:  { borderRadius: 16 },
-  searchRow:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
-  searchInput: { flex: 1, fontSize: 15, color: BRAND.textPrimary },
-
-  // Filter chips
-  filterScroll:  { maxHeight: 52, marginTop: 10 },
-  filterContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
-  chip:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, gap: 6 },
-  chipDot:       { width: 6, height: 6, borderRadius: 3 },
-  chipText:      { fontSize: 13, fontWeight: '600', color: BRAND.textSecondary },
-
-  // Notes list
-  list:        { flex: 1 },
-  listContent: { paddingHorizontal: 16, paddingTop: 14 },
-  noteCard:    { marginBottom: 12 },
-  noteInner:   { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
-  iconWrap:    { width: 50, height: 50, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, flexShrink: 0 },
-  noteBody:    { flex: 1, gap: 4 },
-  noteTitle:   { fontSize: 15, fontWeight: '700', color: BRAND.textPrimary, letterSpacing: -0.2 },
-  noteTagRow:  { flexDirection: 'row' },
-  subjectTag:  { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1 },
-  subjectTagText:{ fontSize: 11, fontWeight: '700', letterSpacing: 0.2 },
-  noteDesc:    { fontSize: 12, color: BRAND.textSecondary },
-  noteMeta:    { fontSize: 11, color: BRAND.textMuted },
-  dlBtn:       { width: 40, height: 40, borderRadius: 14, borderWidth: 1, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
-
-  // Empty
-  empty:        { alignItems: 'center', paddingVertical: 60 },
-  emptyIconRing:{ width: 80, height: 80, borderRadius: 40, borderWidth: 1, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  emptyTitle:   { fontSize: 16, fontWeight: '600', color: BRAND.textSecondary, textAlign: 'center' },
-  emptySub:     { fontSize: 13, color: BRAND.textMuted, textAlign: 'center', marginTop: 4 },
-});
 
 export default StudentNotesScreen;

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Notification from "../models/notification.js";
 import ClassSchedule from "../models/classSchedule.js";
 import User from "../models/user.js";
@@ -245,6 +246,53 @@ export const deleteNotification = async (req, res) => {
       message: "Failed to delete notification",
       error: error.message
     });
+  }
+};
+
+// Send announcement to all students, parents, or both (admin only)
+export const sendAnnouncement = async (req, res) => {
+  try {
+    const { title, message, target, priority = "normal" } = req.body;
+
+    if (!title || !message || !target) {
+      return res.status(400).json({ message: "title, message, and target are required" });
+    }
+
+    const validTargets = ["students", "parents", "both"];
+    if (!validTargets.includes(target)) {
+      return res.status(400).json({ message: "target must be 'students', 'parents', or 'both'" });
+    }
+
+    const roles = target === "students" ? ["student"]
+                : target === "parents"  ? ["parent"]
+                : ["student", "parent"];
+
+    const users = await User.find({ role: { $in: roles } }).select("_id role");
+
+    if (users.length === 0) {
+      return res.json({ message: "No recipients found", notificationsSent: 0 });
+    }
+
+    const notificationDocs = users.map(u => ({
+      recipient: u._id,
+      recipientType: u.role,
+      title,
+      message,
+      type: "announcement",
+      priority,
+      data: { screen: "Notifications" }
+    }));
+
+    const created = await Notification.insertMany(notificationDocs);
+    await NotificationService.sendBulkNotifications(created);
+
+    res.json({
+      message: `Announcement sent to ${created.length} recipient(s)`,
+      notificationsSent: created.length
+    });
+  } catch (error) {
+    console.error("Send announcement error:", error);
+    res.status(500).json({ message: "Failed to send announcement", error: error.message });
   }
 };
 

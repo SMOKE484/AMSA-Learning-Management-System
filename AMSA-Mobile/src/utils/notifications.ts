@@ -61,6 +61,11 @@ export async function registerForPushNotificationsAsync() {
   return token;
 }
 
+export async function getNotificationPermissionStatus(): Promise<string> {
+  const { status } = await Notifications.getPermissionsAsync();
+  return status; // 'granted' | 'denied' | 'undetermined'
+}
+
 export async function removePushToken() {
   try {
     await api.put('/auth/push-token', { pushToken: null });

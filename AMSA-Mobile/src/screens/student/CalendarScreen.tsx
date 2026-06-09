@@ -1,5 +1,5 @@
 // src/screens/student/CalendarScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, Alert, Platform,
@@ -10,14 +10,12 @@ import { RootStackParamList } from '../../types/navigation';
 import { Icon } from '../../components/Icon';
 import { BlurView } from 'expo-blur';
 import BouncingDotsLoader from '../../components/BouncingDotsLoader';
-import { BRAND } from '../../components/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { BrandPalette } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
 import { getSubjectColor } from '../../utils/formatting';
-
 
-
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 const formatDateToLocalString = (date: Date): string => {
   const year  = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -43,15 +41,79 @@ const formatTime = (timeString: string): string => {
 };
 
 const formatDate = (date: Date): string =>
-  date.toLocaleDateString('en-ZA', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-  });
+  date.toLocaleDateString('en-ZA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES  = [
   'January','February','March','April','May','June',
   'July','August','September','October','November','December',
 ];
+
+const makeStyles = (colors: BrandPalette) => StyleSheet.create({
+  container:   { flex: 1, backgroundColor: colors.bg },
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
+  loadingText: { marginTop: 12, fontSize: 15, color: colors.textSecondary },
+
+  header:           { backgroundColor: colors.surface, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerAccentRow:  { flexDirection: 'row', height: 3 },
+  headerAccentDash: { flex: 1 },
+  headerContent:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 56 },
+  backBtn:          { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' },
+  title:            { fontSize: 18, fontWeight: '700', color: colors.textPrimary, letterSpacing: -0.3 },
+  todayBtn:         { fontSize: 14, fontWeight: '700', color: colors.teal },
+
+  monthNav:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
+  monthNavBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' },
+  monthLabel:  { fontSize: 17, fontWeight: '700', color: colors.textPrimary, letterSpacing: -0.3 },
+
+  daysOfWeek:    { flexDirection: 'row', backgroundColor: colors.surface, paddingHorizontal: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  dayOfWeekText: { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  scroll: { flex: 1 },
+
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: colors.surface, padding: 8, borderBottomWidth: 1, borderBottomColor: colors.border },
+  dayCell:      { width: '14.28%', aspectRatio: 1, padding: 4, alignItems: 'center', justifyContent: 'flex-start', borderRadius: 10 },
+  emptyCell:    { opacity: 0 },
+  todayCell:    { borderWidth: 1, borderColor: colors.teal + '55', backgroundColor: colors.tealDim, borderRadius: 10 },
+  selectedCell: { backgroundColor: colors.red, borderRadius: 10 },
+  dayNumber:    { fontSize: 13, fontWeight: '700', color: colors.textPrimary, marginTop: 4 },
+  dotRow:       { flexDirection: 'row', alignItems: 'center', marginTop: 3, gap: 2 },
+  dot:          { width: 5, height: 5, borderRadius: 3 },
+  moreDots:     { fontSize: 8, color: colors.textMuted },
+
+  classesSection:  { paddingHorizontal: 16, paddingTop: 20 },
+  sectionHeaderRow:{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  sectionAccent:   { width: 3, height: 20, borderRadius: 2 },
+  sectionTitle:    { fontSize: 14, fontWeight: '600', color: colors.textSecondary, flex: 1 },
+  classCard:       { marginBottom: 12 },
+  classInner:      { padding: 14 },
+  classTop:        { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 },
+  classSubject:    { fontSize: 15, fontWeight: '700', letterSpacing: -0.2 },
+  classTitle:      { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  timePill:        { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1, marginLeft: 8 },
+  timePillText:    { fontSize: 12, fontWeight: '700' },
+  classMeta:       { gap: 5 },
+  classMetaRow:    { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  classMetaText:   { fontSize: 12, color: colors.textSecondary },
+
+  empty:         { alignItems: 'center', paddingVertical: 48 },
+  emptyIconRing: { width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  emptyTitle:    { fontSize: 15, fontWeight: '600', color: colors.textSecondary, textAlign: 'center' },
+  emptySub:      { fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: 4 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
+  modalCard: { borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden', padding: 28, borderWidth: 1, borderColor: colors.borderStrong },
+  modalHeader:   { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
+  modalSubject:  { fontSize: 13, fontWeight: '700', letterSpacing: 0.3, marginBottom: 4 },
+  modalTitle:    { fontSize: 20, fontWeight: '700', color: colors.textPrimary, letterSpacing: -0.3 },
+  modalClose:    { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' },
+  modalDetails:  { gap: 16, marginBottom: 24 },
+  modalRow:      { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  modalRowLabel: { fontSize: 11, fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 },
+  modalRowValue: { fontSize: 14, color: colors.textPrimary, fontWeight: '500' },
+  modalBtn:      { backgroundColor: colors.teal, padding: 16, borderRadius: 16, alignItems: 'center' },
+  modalBtnText:  { color: '#fff', fontSize: 16, fontWeight: '700' },
+});
 
 // ════════════════════════════════════════════════════════════════════════════
 // SCREEN
@@ -64,6 +126,8 @@ const CalendarScreen = () => {
   const [selectedDate, setSelectedDate]   = useState(new Date());
   const [selectedClass, setSelectedClass] = useState<any>(null);
   const [modalVisible, setModalVisible]   = useState(false);
+  const { colors: BRAND, mode } = useTheme();
+  const s = useMemo(() => makeStyles(BRAND), [BRAND]);
 
   useEffect(() => { loadSchedule(); }, [currentDate]);
 
@@ -161,19 +225,11 @@ const CalendarScreen = () => {
 
       {/* ── MONTH NAVIGATION ───────────────────────────────────────────── */}
       <View style={s.monthNav}>
-        <TouchableOpacity
-          style={s.monthNavBtn}
-          onPress={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
-        >
+        <TouchableOpacity style={s.monthNavBtn} onPress={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}>
           <Icon name="chevron-back" size={22} color={BRAND.teal} />
         </TouchableOpacity>
-        <Text style={s.monthLabel}>
-          {MONTH_NAMES[currentDate.getMonth()]} {currentDate.getFullYear()}
-        </Text>
-        <TouchableOpacity
-          style={s.monthNavBtn}
-          onPress={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
-        >
+        <Text style={s.monthLabel}>{MONTH_NAMES[currentDate.getMonth()]} {currentDate.getFullYear()}</Text>
+        <TouchableOpacity style={s.monthNavBtn} onPress={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}>
           <Icon name="chevron-forward" size={22} color={BRAND.teal} />
         </TouchableOpacity>
       </View>
@@ -195,22 +251,13 @@ const CalendarScreen = () => {
             return (
               <TouchableOpacity
                 key={index}
-                style={[
-                  s.dayCell,
-                  isToday    && s.todayCell,
-                  isSelected && s.selectedCell,
-                  !date      && s.emptyCell,
-                ]}
+                style={[s.dayCell, isToday && s.todayCell, isSelected && s.selectedCell, !date && s.emptyCell]}
                 onPress={() => date && handleDateSelect(date)}
                 disabled={!date}
               >
                 {date && (
                   <>
-                    <Text style={[
-                      s.dayNumber,
-                      isToday    && { color: BRAND.teal },
-                      isSelected && { color: '#fff' },
-                    ]}>
+                    <Text style={[s.dayNumber, isToday && { color: BRAND.teal }, isSelected && { color: '#fff' }]}>
                       {date.getDate()}
                     </Text>
                     {classes.length > 0 && (
@@ -288,16 +335,11 @@ const CalendarScreen = () => {
       </ScrollView>
 
       {/* ── CLASS DETAIL MODAL ─────────────────────────────────────────── */}
-      <Modal
-        animationType="slide"
-        transparent
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
+      <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
         <View style={s.modalOverlay}>
           <View style={s.modalCard}>
             {Platform.OS === 'ios' ? (
-              <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+              <BlurView intensity={40} tint={mode === 'dark' ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
             ) : (
               <View style={[StyleSheet.absoluteFill, { backgroundColor: BRAND.surfaceAlt }]} />
             )}
@@ -314,7 +356,6 @@ const CalendarScreen = () => {
                     <Icon name="close" size={18} color={BRAND.textSecondary} />
                   </TouchableOpacity>
                 </View>
-
                 <View style={s.modalDetails}>
                   <View style={s.modalRow}>
                     <Icon name="time-outline" size={18} color={BRAND.teal} />
@@ -351,7 +392,6 @@ const CalendarScreen = () => {
                     </View>
                   )}
                 </View>
-
                 <TouchableOpacity
                   style={s.modalBtn}
                   onPress={() => { setModalVisible(false); handleClassSelect(selectedClass); }}
@@ -366,83 +406,5 @@ const CalendarScreen = () => {
     </View>
   );
 };
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: BRAND.bg },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.bg },
-  loadingText: { marginTop: 12, fontSize: 15, color: BRAND.textSecondary },
-
-  // Header
-  header:           { backgroundColor: BRAND.surface, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: BRAND.border },
-  headerAccentRow:  { flexDirection: 'row', height: 3 },
-  headerAccentDash: { flex: 1 },
-  headerContent:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 56 },
-  backBtn:          { width: 38, height: 38, borderRadius: 12, backgroundColor: BRAND.surfaceAlt, borderWidth: 1, borderColor: BRAND.border, justifyContent: 'center', alignItems: 'center' },
-  title:            { fontSize: 18, fontWeight: '700', color: BRAND.textPrimary, letterSpacing: -0.3 },
-  todayBtn:         { fontSize: 14, fontWeight: '700', color: BRAND.teal },
-
-  // Month nav
-  monthNav:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: BRAND.surface, borderBottomWidth: 1, borderBottomColor: BRAND.border },
-  monthNavBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: BRAND.surfaceAlt, borderWidth: 1, borderColor: BRAND.border, justifyContent: 'center', alignItems: 'center' },
-  monthLabel:  { fontSize: 17, fontWeight: '700', color: BRAND.textPrimary, letterSpacing: -0.3 },
-
-  // Days of week
-  daysOfWeek:    { flexDirection: 'row', backgroundColor: BRAND.surface, paddingHorizontal: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: BRAND.border },
-  dayOfWeekText: { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '700', color: BRAND.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
-
-  scroll: { flex: 1 },
-
-  // Calendar grid
-  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: BRAND.surface, padding: 8, borderBottomWidth: 1, borderBottomColor: BRAND.border },
-  dayCell:      { width: '14.28%', aspectRatio: 1, padding: 4, alignItems: 'center', justifyContent: 'flex-start', borderRadius: 10 },
-  emptyCell:    { opacity: 0 },
-  todayCell:    { borderWidth: 1, borderColor: BRAND.teal + '55', backgroundColor: BRAND.tealDim, borderRadius: 10 },
-  selectedCell: { backgroundColor: BRAND.red, borderRadius: 10 },
-  dayNumber:    { fontSize: 13, fontWeight: '700', color: BRAND.textPrimary, marginTop: 4 },
-  dotRow:       { flexDirection: 'row', alignItems: 'center', marginTop: 3, gap: 2 },
-  dot:          { width: 5, height: 5, borderRadius: 3 },
-  moreDots:     { fontSize: 8, color: BRAND.textMuted },
-
-  // Classes section
-  classesSection:  { paddingHorizontal: 16, paddingTop: 20 },
-  sectionHeaderRow:{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
-  sectionAccent:   { width: 3, height: 20, borderRadius: 2 },
-  sectionTitle:    { fontSize: 14, fontWeight: '600', color: BRAND.textSecondary, flex: 1 },
-  classCard:       { marginBottom: 12 },
-  classInner:      { padding: 14 },
-  classTop:        { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 },
-  classSubject:    { fontSize: 15, fontWeight: '700', letterSpacing: -0.2 },
-  classTitle:      { fontSize: 13, color: BRAND.textSecondary, marginTop: 2 },
-  timePill:        { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1, marginLeft: 8 },
-  timePillText:    { fontSize: 12, fontWeight: '700' },
-  classMeta:       { gap: 5 },
-  classMetaRow:    { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  classMetaText:   { fontSize: 12, color: BRAND.textSecondary },
-
-  // Empty
-  empty:         { alignItems: 'center', paddingVertical: 48 },
-  emptyIconRing: { width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: BRAND.border, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  emptyTitle:    { fontSize: 15, fontWeight: '600', color: BRAND.textSecondary, textAlign: 'center' },
-  emptySub:      { fontSize: 13, color: BRAND.textMuted, textAlign: 'center', marginTop: 4 },
-
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
-  modalCard: {
-    borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    overflow: 'hidden', padding: 28,
-    borderWidth: 1, borderColor: BRAND.borderStrong,
-  },
-  modalHeader:   { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
-  modalSubject:  { fontSize: 13, fontWeight: '700', letterSpacing: 0.3, marginBottom: 4 },
-  modalTitle:    { fontSize: 20, fontWeight: '700', color: BRAND.textPrimary, letterSpacing: -0.3 },
-  modalClose:    { width: 34, height: 34, borderRadius: 17, backgroundColor: BRAND.surfaceAlt, borderWidth: 1, borderColor: BRAND.border, justifyContent: 'center', alignItems: 'center' },
-  modalDetails:  { gap: 16, marginBottom: 24 },
-  modalRow:      { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
-  modalRowLabel: { fontSize: 11, fontWeight: '600', color: BRAND.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 },
-  modalRowValue: { fontSize: 14, color: BRAND.textPrimary, fontWeight: '500' },
-  modalBtn:      { backgroundColor: BRAND.teal, padding: 16, borderRadius: 16, alignItems: 'center' },
-  modalBtnText:  { color: '#fff', fontSize: 16, fontWeight: '700' },
-});
 
 export default CalendarScreen;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Platform, Modal,
@@ -7,14 +7,16 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import * as Application from 'expo-application';
 import { studentService, ClassSchedule, Attendance } from '../../services/student';
-import { BRAND } from '../../components/theme';
+import { BRAND, BrandPalette } from '../../components/theme';
 import { Icon } from '../../components/Icon';
 import { BlurView } from 'expo-blur';
 import { RootStackParamList } from '../../types/navigation';
 import { GlassCard } from '../../components/GlassCard';
+import { useTheme } from '../../context/ThemeContext';
 
 type ClassDetailsRouteProp = RouteProp<RootStackParamList, 'ClassDetails'>;
 
+// Accent-only maps — identical in both themes, safe as module-level constants
 const SUBJECT_COLORS: Record<string, string> = {
   'Mathematics':      BRAND.blue,
   'Physics':          '#8b5cf6',
@@ -29,7 +31,44 @@ const SUBJECT_COLORS: Record<string, string> = {
 };
 const subjectColor = (s: string) => SUBJECT_COLORS[s] || BRAND.blue;
 
-// ─── Alert (same pattern as DashboardScreen) ──────────────────────────────────
+const ATTENDANCE_COLORS: Record<string, string> = {
+  present:    BRAND.teal,
+  absent:     BRAND.red,
+  late:       BRAND.yellow,
+  excused:    BRAND.blue,
+  left_early: BRAND.yellow,
+};
+const ATTENDANCE_LABELS: Record<string, string> = {
+  present: 'Present', absent: 'Absent', late: 'Late',
+  excused: 'Excused', left_early: 'Left Early',
+};
+
+// ─── Alert ────────────────────────────────────────────────────────────────────
+const makeAlertStyles = (colors: BrandPalette) => StyleSheet.create({
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center', alignItems: 'center', padding: 24,
+  },
+  card: {
+    borderRadius: 28, overflow: 'hidden',
+    width: '100%', maxWidth: 380,
+    padding: 32, alignItems: 'center',
+    borderWidth: 1, borderColor: colors.borderStrong,
+  },
+  iconRing: {
+    width: 80, height: 80, borderRadius: 40,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 20, borderWidth: 1,
+  },
+  title:   { fontSize: 22, fontWeight: '700', color: colors.textPrimary, textAlign: 'center', marginBottom: 10, letterSpacing: -0.3 },
+  message: { fontSize: 15, color: colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 28 },
+  btn: {
+    width: '100%', paddingVertical: 15, borderRadius: 16, alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
+  },
+  btnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
+});
+
 const ProfessionalAlert = ({
   visible, onClose, title, message,
   type = 'info', actionText = 'OK', onAction,
@@ -39,11 +78,13 @@ const ProfessionalAlert = ({
   type?: 'info' | 'success' | 'warning' | 'error';
   actionText?: string; onAction?: () => void;
 }) => {
+  const { colors, mode } = useTheme();
+  const al = useMemo(() => makeAlertStyles(colors), [colors]);
   const palette = {
-    info:    { color: BRAND.blue,   dim: BRAND.blueDim   },
-    success: { color: BRAND.teal,   dim: BRAND.tealDim   },
-    warning: { color: BRAND.yellow, dim: BRAND.yellowDim },
-    error:   { color: BRAND.red,    dim: BRAND.redDim    },
+    info:    { color: colors.blue,   dim: colors.blueDim   },
+    success: { color: colors.teal,   dim: colors.tealDim   },
+    warning: { color: colors.yellow, dim: colors.yellowDim },
+    error:   { color: colors.red,    dim: colors.redDim    },
   };
   const iconMap = {
     info: 'information-circle', success: 'checkmark-circle',
@@ -55,8 +96,8 @@ const ProfessionalAlert = ({
       <View style={al.overlay}>
         <View style={al.card}>
           {Platform.OS === 'ios'
-            ? <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-            : <View style={[StyleSheet.absoluteFill, { backgroundColor: '#1A1A1A' }]} />}
+            ? <BlurView intensity={40} tint={mode === 'dark' ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
+            : <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surfaceAlt }]} />}
           <View style={[al.iconRing, { backgroundColor: dim, borderColor: color + '40' }]}>
             <Icon name={iconMap[type] as any} size={38} color={color} />
           </View>
@@ -74,31 +115,6 @@ const ProfessionalAlert = ({
   );
 };
 
-const al = StyleSheet.create({
-  overlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.75)',
-    justifyContent: 'center', alignItems: 'center', padding: 24,
-  },
-  card: {
-    borderRadius: 28, overflow: 'hidden',
-    width: '100%', maxWidth: 380,
-    padding: 32, alignItems: 'center',
-    borderWidth: 1, borderColor: BRAND.borderStrong,
-  },
-  iconRing: {
-    width: 80, height: 80, borderRadius: 40,
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: 20, borderWidth: 1,
-  },
-  title:   { fontSize: 22, fontWeight: '700', color: BRAND.textPrimary, textAlign: 'center', marginBottom: 10, letterSpacing: -0.3 },
-  message: { fontSize: 15, color: BRAND.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 28 },
-  btn: {
-    width: '100%', paddingVertical: 15, borderRadius: 16, alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
-  },
-  btnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
-});
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatTime = (t?: string) => {
   if (!t) return '';
@@ -114,18 +130,50 @@ const formatDate = (d?: string) => {
   });
 };
 
-const ATTENDANCE_COLORS: Record<string, string> = {
-  present:    BRAND.teal,
-  absent:     BRAND.red,
-  late:       BRAND.yellow,
-  excused:    BRAND.blue,
-  left_early: BRAND.yellow,
-};
+// ─── Styles factory ───────────────────────────────────────────────────────────
+const makeStyles = (colors: BrandPalette) => StyleSheet.create({
+  root:       { flex: 1, backgroundColor: colors.bg },
+  scroll:     { padding: 20, paddingBottom: 40 },
+  loadingWrap:{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center' },
 
-const ATTENDANCE_LABELS: Record<string, string> = {
-  present: 'Present', absent: 'Absent', late: 'Late',
-  excused: 'Excused', left_early: 'Left Early',
-};
+  header:      { marginBottom: 20, alignItems: 'flex-start' },
+  subjectChip: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, marginBottom: 10 },
+  subjectText: { fontSize: 13, fontWeight: '600', letterSpacing: 0.3 },
+  classTitle:  { fontSize: 26, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, marginBottom: 8 },
+  statusBadge: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4 },
+  statusText:  { fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
+
+  card: { marginBottom: 16, padding: 18 },
+  row:  {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  rowText: { color: colors.textSecondary, fontSize: 15, flex: 1 },
+
+  sectionLabel: {
+    fontSize: 12, color: colors.textMuted, fontWeight: '700',
+    letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 14,
+  },
+  attRow:    { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  attDot:    { width: 10, height: 10, borderRadius: 5 },
+  attLabel:  { fontSize: 16, fontWeight: '700' },
+  checkInTime: { marginLeft: 'auto', fontSize: 13, color: colors.textMuted },
+
+  checkInBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: colors.teal, borderRadius: 18, paddingVertical: 18, marginTop: 8,
+    shadowColor: colors.teal, shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
+  },
+  checkInBtnLoading: { backgroundColor: '#059669' },
+  checkInBtnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
+
+  presentBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: colors.tealDim, borderRadius: 14, padding: 16, marginTop: 8,
+  },
+  presentText: { color: colors.teal, fontSize: 15, fontWeight: '600', flex: 1 },
+});
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 const ClassDetailsScreen = () => {
@@ -145,6 +193,9 @@ const ClassDetailsScreen = () => {
     actionText: 'OK',
     onAction: undefined as (() => void) | undefined,
   });
+
+  const { colors: BRAND } = useTheme();
+  const s = useMemo(() => makeStyles(BRAND), [BRAND]);
 
   const showAlert = (
     title: string, message: string,
@@ -349,49 +400,5 @@ const ClassDetailsScreen = () => {
     </View>
   );
 };
-
-const s = StyleSheet.create({
-  root:       { flex: 1, backgroundColor: BRAND.bg },
-  scroll:     { padding: 20, paddingBottom: 40 },
-  loadingWrap:{ flex: 1, backgroundColor: BRAND.bg, justifyContent: 'center', alignItems: 'center' },
-
-  header:      { marginBottom: 20, alignItems: 'flex-start' },
-  subjectChip: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, marginBottom: 10 },
-  subjectText: { fontSize: 13, fontWeight: '600', letterSpacing: 0.3 },
-  classTitle:  { fontSize: 26, fontWeight: '800', color: BRAND.textPrimary, letterSpacing: -0.5, marginBottom: 8 },
-  statusBadge: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4 },
-  statusText:  { fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
-
-  card: { marginBottom: 16, padding: 18 },
-  row:  {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: BRAND.border,
-  },
-  rowText: { color: BRAND.textSecondary, fontSize: 15, flex: 1 },
-
-  sectionLabel: {
-    fontSize: 12, color: BRAND.textMuted, fontWeight: '700',
-    letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 14,
-  },
-  attRow:    { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  attDot:    { width: 10, height: 10, borderRadius: 5 },
-  attLabel:  { fontSize: 16, fontWeight: '700' },
-  checkInTime: { marginLeft: 'auto', fontSize: 13, color: BRAND.textMuted },
-
-  checkInBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: BRAND.teal, borderRadius: 18, paddingVertical: 18, marginTop: 8,
-    shadowColor: BRAND.teal, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
-  },
-  checkInBtnLoading: { backgroundColor: '#059669' },
-  checkInBtnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
-
-  presentBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: BRAND.tealDim, borderRadius: 14, padding: 16, marginTop: 8,
-  },
-  presentText: { color: BRAND.teal, fontSize: 15, fontWeight: '600', flex: 1 },
-});
 
 export default ClassDetailsScreen;

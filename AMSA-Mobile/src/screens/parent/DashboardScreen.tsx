@@ -1,22 +1,22 @@
 // src/screens/parent/DashboardScreen.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Platform, Alert,
+  RefreshControl, Alert,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { parentService } from '../../services/parent';
-import { useNavigation } from '@react-navigation/native';
+import { getNotifications } from '../../services/notifications';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { ParentStackParamList } from '../../types/navigation';
 import { registerForPushNotificationsAsync } from '../../utils/notifications';
 import * as Notifications from 'expo-notifications';
 import { Icon } from '../../components/Icon';
-import { BlurView } from 'expo-blur';
 import BouncingDotsLoader from '../../components/BouncingDotsLoader';
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
-import { BRAND } from '../../components/theme';
+import { BrandPalette } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
-
-
+import { useTheme } from '../../context/ThemeContext';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const formatActivityTime = (dateStr: string): string => {
@@ -28,23 +28,68 @@ const formatActivityTime = (dateStr: string): string => {
   return date.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
 };
 
-// ─── Interfaces ───────────────────────────────────────────────────────────────
 interface ParentStats {
   childrenCount: number;
   totalMarks: number;
   averageAttendance: number;
 }
 
+// ─── Styles factory ───────────────────────────────────────────────────────────
+const makeStyles = (colors: BrandPalette) => StyleSheet.create({
+  container:   { flex: 1, backgroundColor: colors.bg },
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
+  loadingText: { marginTop: 12, fontSize: 15, color: colors.textSecondary },
+
+  header:           { backgroundColor: colors.surface, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerAccentRow:  { flexDirection: 'row', height: 3 },
+  headerAccentDash: { flex: 1 },
+  headerContent:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 56 },
+  welcome:          { fontSize: 14, color: colors.textSecondary, letterSpacing: 0.3 },
+  userName:         { fontSize: 28, fontWeight: '800', color: colors.textPrimary, marginTop: 2, letterSpacing: -0.5 },
+  notifBtn:         { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' },
+
+  statsRow:     { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 20, gap: 10 },
+  statCard:     { flex: 1, padding: 14, alignItems: 'center' },
+  statIconWrap: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  statValue:    { fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
+  statLabel:    { fontSize: 11, color: colors.textSecondary, marginTop: 2, fontWeight: '600', textAlign: 'center' },
+
+  section:        { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 },
+  sectionHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, marginTop: 8 },
+  sectionTitleRow:{ flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionAccent:  { width: 3, height: 20, borderRadius: 2 },
+  sectionTitle:   { fontSize: 18, fontWeight: '700', color: colors.textPrimary, letterSpacing: -0.3 },
+
+  actionsGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  actionCard:     {},
+  actionCardInner:{ padding: 20, alignItems: 'center' },
+  actionIconWrap: { width: 56, height: 56, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 12, borderWidth: 1 },
+  actionText:     { fontSize: 13, fontWeight: '600', color: colors.textPrimary, textAlign: 'center' },
+
+  activityCard:     {},
+  activityInner:    { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
+  activityIconWrap: { width: 40, height: 40, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  activityTitle:    { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: 3 },
+  activityTime:     { fontSize: 12, color: colors.textSecondary },
+
+  empty:    { alignItems: 'center', paddingVertical: 40 },
+  emptyText:{ marginTop: 12, fontSize: 15, color: colors.textSecondary, fontWeight: '500' },
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 // SCREEN
 // ════════════════════════════════════════════════════════════════════════════
 const ParentDashboardScreen = () => {
   const { user } = useAuth();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<ParentStackParamList>>();
   const [stats, setStats]             = useState<ParentStats>({ childrenCount: 0, totalMarks: 0, averageAttendance: 0 });
   const [refreshing, setRefreshing]   = useState(false);
   const [loading, setLoading]         = useState(true);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount]       = useState(0);
+
+  const { colors: BRAND } = useTheme();
+  const s = useMemo(() => makeStyles(BRAND), [BRAND]);
 
   const notificationListener = useRef<Notifications.Subscription | null>(null);
 
@@ -80,8 +125,12 @@ const ParentDashboardScreen = () => {
 
   useEffect(() => {
     loadDashboardData();
+    getNotifications(1, true).then(r => setUnreadCount(r.unreadCount)).catch(() => {});
     registerForPushNotificationsAsync().catch(console.error);
-    notificationListener.current = Notifications.addNotificationReceivedListener(() => loadDashboardData());
+    notificationListener.current = Notifications.addNotificationReceivedListener(() => {
+      loadDashboardData();
+      getNotifications(1, true).then(r => setUnreadCount(r.unreadCount)).catch(() => {});
+    });
     return () => { notificationListener.current?.remove(); };
   }, []);
 
@@ -115,12 +164,7 @@ const ParentDashboardScreen = () => {
       contentContainerStyle={{ paddingBottom: BOTTOM_PAD }}
       showsVerticalScrollIndicator={false}
       refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={BRAND.red}
-          colors={[BRAND.red]}
-        />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND.red} colors={[BRAND.red]} />
       }
     >
       {/* ── HEADER ─────────────────────────────────────────────────────── */}
@@ -137,9 +181,16 @@ const ParentDashboardScreen = () => {
           </View>
           <TouchableOpacity
             style={s.notifBtn}
-            onPress={() => Alert.alert('Notifications', 'No new notifications at this time.')}
+            onPress={() => navigation.navigate('NotificationList')}
           >
             <Icon name="notifications-outline" size={22} color={BRAND.textPrimary} />
+            {unreadCount > 0 && (
+              <View style={{
+                position: 'absolute', top: 6, right: 6,
+                width: 8, height: 8, borderRadius: 4,
+                backgroundColor: BRAND.red,
+              }} />
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -147,9 +198,9 @@ const ParentDashboardScreen = () => {
       {/* ── STATS ROW ──────────────────────────────────────────────────── */}
       <View style={s.statsRow}>
         {[
-          { icon: 'people',    value: stats.childrenCount,    label: 'Children',   color: BRAND.teal,   dim: BRAND.tealDim   },
-          { icon: 'school',    value: stats.totalMarks,       label: 'Tests',      color: BRAND.red,    dim: BRAND.redDim    },
-          { icon: 'calendar',  value: `${stats.averageAttendance}%`, label: 'Attendance', color: BRAND.blue, dim: BRAND.blueDim },
+          { icon: 'people',   value: stats.childrenCount,          label: 'Children',   color: BRAND.teal,  dim: BRAND.tealDim  },
+          { icon: 'school',   value: stats.totalMarks,             label: 'Tests',      color: BRAND.red,   dim: BRAND.redDim   },
+          { icon: 'calendar', value: `${stats.averageAttendance}%`, label: 'Attendance', color: BRAND.blue,  dim: BRAND.blueDim  },
         ].map((item, i) => (
           <GlassCard key={i} style={s.statCard} accentColor={item.color} accentSide="top">
             <View style={[s.statIconWrap, { backgroundColor: item.dim }]}>
@@ -171,12 +222,7 @@ const ParentDashboardScreen = () => {
         </View>
         <View style={s.actionsGrid}>
           {quickActions.map((action, index) => (
-            <TouchableOpacity
-              key={index}
-              onPress={action.onPress}
-              activeOpacity={0.7}
-              style={{ width: '48%' }}
-            >
+            <TouchableOpacity key={index} onPress={action.onPress} activeOpacity={0.7} style={{ width: '48%' }}>
               <GlassCard style={s.actionCard}>
                 <View style={s.actionCardInner}>
                   <View style={[s.actionIconWrap, { backgroundColor: action.dim, borderColor: action.color + '44' }]}>
@@ -200,10 +246,7 @@ const ParentDashboardScreen = () => {
         </View>
 
         {recentActivity.length > 0 ? recentActivity.map((item, i) => (
-          <TouchableOpacity
-            key={i}
-            onPress={() => { if (item.type === 'mark') navigation.navigate('Marks' as never); }}
-          >
+          <TouchableOpacity key={i} onPress={() => { if (item.type === 'mark') navigation.navigate('Marks' as never); }}>
             <GlassCard style={[s.activityCard, { marginBottom: 10 }]}>
               <View style={s.activityInner}>
                 <View style={[s.activityIconWrap, { backgroundColor: item.color + '22', borderColor: item.color + '44' }]}>
@@ -227,53 +270,5 @@ const ParentDashboardScreen = () => {
     </ScrollView>
   );
 };
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: BRAND.bg },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.bg },
-  loadingText: { marginTop: 12, fontSize: 15, color: BRAND.textSecondary },
-
-  // Header
-  header:           { backgroundColor: BRAND.surface, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: BRAND.border },
-  headerAccentRow:  { flexDirection: 'row', height: 3 },
-  headerAccentDash: { flex: 1 },
-  headerContent:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 56 },
-  welcome:          { fontSize: 14, color: BRAND.textSecondary, letterSpacing: 0.3 },
-  userName:         { fontSize: 28, fontWeight: '800', color: BRAND.textPrimary, marginTop: 2, letterSpacing: -0.5 },
-  notifBtn:         { width: 44, height: 44, borderRadius: 14, backgroundColor: BRAND.surfaceAlt, borderWidth: 1, borderColor: BRAND.border, justifyContent: 'center', alignItems: 'center' },
-
-  // Stats
-  statsRow:     { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 20, gap: 10 },
-  statCard:     { flex: 1, padding: 14, alignItems: 'center' },
-  statIconWrap: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  statValue:    { fontSize: 22, fontWeight: '800', color: BRAND.textPrimary, letterSpacing: -0.5 },
-  statLabel:    { fontSize: 11, color: BRAND.textSecondary, marginTop: 2, fontWeight: '600', textAlign: 'center' },
-
-  // Section
-  section:        { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 },
-  sectionHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, marginTop: 8 },
-  sectionTitleRow:{ flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionAccent:  { width: 3, height: 20, borderRadius: 2 },
-  sectionTitle:   { fontSize: 18, fontWeight: '700', color: BRAND.textPrimary, letterSpacing: -0.3 },
-
-  // Quick actions
-  actionsGrid:    { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  actionCard:     {},
-  actionCardInner:{ padding: 20, alignItems: 'center' },
-  actionIconWrap: { width: 56, height: 56, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 12, borderWidth: 1 },
-  actionText:     { fontSize: 13, fontWeight: '600', color: BRAND.textPrimary, textAlign: 'center' },
-
-  // Activity
-  activityCard:     {},
-  activityInner:    { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
-  activityIconWrap: { width: 40, height: 40, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
-  activityTitle:    { fontSize: 14, fontWeight: '600', color: BRAND.textPrimary, marginBottom: 3 },
-  activityTime:     { fontSize: 12, color: BRAND.textSecondary },
-
-  // Empty
-  empty:    { alignItems: 'center', paddingVertical: 40 },
-  emptyText:{ marginTop: 12, fontSize: 15, color: BRAND.textSecondary, fontWeight: '500' },
-});
 
 export default ParentDashboardScreen;

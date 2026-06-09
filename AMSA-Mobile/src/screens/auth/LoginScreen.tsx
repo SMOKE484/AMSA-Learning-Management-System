@@ -1,17 +1,79 @@
 // src/screens/auth/LoginScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Alert, KeyboardAvoidingView, Platform, ScrollView, Image,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { BrandPalette } from '../../components/theme';
 import { Icon } from '../../components/Icon';
 import BouncingDotsLoader from '../../components/BouncingDotsLoader';
-import { BRAND } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
-
-
+
+
+const makeStyles = (colors: BrandPalette) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
+
+  accentStrip: { flexDirection: 'row', height: 3 },
+  accentDash:  { flex: 1 },
+
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 },
+
+  header:   { alignItems: 'center', marginBottom: 36 },
+  logoRing: {
+    width: 96, height: 96, borderRadius: 24,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 20,
+    overflow: 'hidden',
+  },
+  logoImage: { width: 80, height: 80 },
+  title:    { fontSize: 30, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
+  subtitle: { fontSize: 14, color: colors.textSecondary, marginTop: 6 },
+
+  card:      { marginBottom: 16 },
+  cardInner: { padding: 20 },
+
+  fieldLabel: { marginBottom: 8 },
+  labelText:  { fontSize: 11, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.8, textTransform: 'uppercase' },
+
+  inputRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1, borderColor: colors.borderStrong,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 2,
+  },
+  input: { flex: 1, fontSize: 15, color: colors.textPrimary, paddingVertical: 14 },
+  showBtn:     { paddingHorizontal: 4, paddingVertical: 6 },
+  showBtnText: { fontSize: 10, fontWeight: '700', color: colors.teal, letterSpacing: 0.5 },
+
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: 16 },
+
+  loginBtn: {
+    backgroundColor: colors.teal,
+    paddingVertical: 16, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 24,
+    shadowColor: colors.teal,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  loginBtnDisabled: { opacity: 0.6 },
+  loginBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+
+  hint: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: colors.tealDim, borderWidth: 1, borderColor: colors.teal + '33',
+    borderRadius: 12, padding: 14, marginBottom: 32,
+  },
+  hintAccent: { width: 3, height: '100%', borderRadius: 2, alignSelf: 'stretch' },
+  hintText:   { flex: 1, fontSize: 13, color: colors.teal, lineHeight: 18 },
+
+  footer: { fontSize: 12, color: colors.textMuted, textAlign: 'center' },
+});
 
 // ════════════════════════════════════════════════════════════════════════════
 // SCREEN
@@ -23,6 +85,8 @@ const LoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   const { login } = useAuth();
+  const { colors: BRAND, mode } = useTheme();
+  const s = useMemo(() => makeStyles(BRAND), [BRAND]);
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
@@ -149,77 +213,5 @@ const LoginScreen = () => {
     </KeyboardAvoidingView>
   );
 };
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BRAND.bg },
-
-  // Accent strip
-  accentStrip: { flexDirection: 'row', height: 3 },
-  accentDash:  { flex: 1 },
-
-  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 },
-
-  // Header
-  header:   { alignItems: 'center', marginBottom: 36 },
-  logoRing: {
-    width: 96, height: 96, borderRadius: 24,
-    backgroundColor: BRAND.surface, borderWidth: 1, borderColor: BRAND.border,
-    justifyContent: 'center', alignItems: 'center', marginBottom: 20,
-    overflow: 'hidden',
-  },
-  logoImage: { width: 80, height: 80 },
-  title:    { fontSize: 30, fontWeight: '800', color: BRAND.textPrimary, letterSpacing: -0.5 },
-  subtitle: { fontSize: 14, color: BRAND.textSecondary, marginTop: 6 },
-
-  // Card
-  card:      { marginBottom: 16 },
-  cardInner: { padding: 20 },
-
-  // Field label
-  fieldLabel: { marginBottom: 8 },
-  labelText:  { fontSize: 11, fontWeight: '700', color: BRAND.textMuted, letterSpacing: 0.8, textTransform: 'uppercase' },
-
-  // Input row
-  inputRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: BRAND.borderStrong,
-    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 2,
-  },
-  input: { flex: 1, fontSize: 15, color: BRAND.textPrimary, paddingVertical: 14 },
-  showBtn:     { paddingHorizontal: 4, paddingVertical: 6 },
-  showBtnText: { fontSize: 10, fontWeight: '700', color: BRAND.teal, letterSpacing: 0.5 },
-
-  // Divider between fields
-  divider: { height: 1, backgroundColor: BRAND.border, marginVertical: 16 },
-
-  // Login button
-  loginBtn: {
-    backgroundColor: BRAND.teal,
-    paddingVertical: 16, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 24,
-    shadowColor: BRAND.teal,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  loginBtnDisabled: { opacity: 0.6 },
-  loginBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
-
-  // Hint
-  hint: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: BRAND.tealDim, borderWidth: 1, borderColor: BRAND.teal + '33',
-    borderRadius: 12, padding: 14, marginBottom: 32,
-  },
-  hintAccent: { width: 3, height: '100%', borderRadius: 2, alignSelf: 'stretch' },
-  hintText:   { flex: 1, fontSize: 13, color: BRAND.teal, lineHeight: 18 },
-
-  // Footer
-  footer: { fontSize: 12, color: BRAND.textMuted, textAlign: 'center' },
-});
 
 export default LoginScreen;

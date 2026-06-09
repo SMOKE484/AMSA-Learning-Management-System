@@ -1,8 +1,9 @@
 import express from "express";
 import { authenticate, authorize } from "../middleware/authMiddleware.js";
-import { 
+import {
   sendClassReminders,
   sendCheckInNotification,
+  sendAnnouncement,
   getUserNotifications,
   markAsRead,
   markAllAsRead,
@@ -36,9 +37,15 @@ router.post("/class-reminders",
   sendClassReminders
 );
 
-router.post("/:classId/check-in-notification", 
+router.post("/:classId/check-in-notification",
   authorize(["tutor", "admin"]),
   sendCheckInNotification
+);
+
+// Admin: send announcement to students, parents, or both
+router.post("/announcement",
+  authorize(["admin"]),
+  sendAnnouncement
 );
 
 export default router;

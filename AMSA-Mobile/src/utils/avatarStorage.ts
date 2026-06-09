@@ -1,3 +1,5 @@
+// @ts-ignore
+import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const AVATAR_SEEDS = [
@@ -16,3 +18,34 @@ export const getStoredAvatarSeed = (userId: string): Promise<string | null> =>
 
 export const saveAvatarSeed = (userId: string, seed: string): Promise<void> =>
   AsyncStorage.setItem(`amsa_avatar_${userId}`, seed);
+
+export const saveProfilePicture = async (
+  userId: string,
+  tempUri: string,
+): Promise<string> => {
+  const ext = tempUri.split('.').pop()?.split('?')[0] || 'jpg';
+  const dir = FileSystem.documentDirectory + 'profile_pictures/';
+  await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+  const dest = dir + userId + '.' + ext;
+  await FileSystem.copyAsync({ from: tempUri, to: dest });
+  await AsyncStorage.setItem('amsa_profile_picture_' + userId, dest);
+  return dest;
+};
+
+export const getStoredProfilePicture = async (
+  userId: string,
+): Promise<string | null> => {
+  const uri = await AsyncStorage.getItem('amsa_profile_picture_' + userId);
+  if (!uri) return null;
+  const info = await FileSystem.getInfoAsync(uri);
+  return info.exists ? uri : null;
+};
+
+export const deleteProfilePicture = async (userId: string): Promise<void> => {
+  const uri = await AsyncStorage.getItem('amsa_profile_picture_' + userId);
+  if (uri) {
+    const info = await FileSystem.getInfoAsync(uri);
+    if (info.exists) await FileSystem.deleteAsync(uri, { idempotent: true });
+  }
+  await AsyncStorage.removeItem('amsa_profile_picture_' + userId);
+};

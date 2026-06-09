@@ -1,11 +1,12 @@
 // src/screens/student/DashboardScreen.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, Platform, Animated, Modal
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { studentService, ClassSchedule } from '../../services/student';
+import { getNotifications } from '../../services/notifications';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../types/navigation';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -17,12 +18,59 @@ import { Icon } from '../../components/Icon';
 import { BlurView } from 'expo-blur';
 import BouncingDotsLoader from '../../components/BouncingDotsLoader';
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
-import { BRAND } from '../../components/theme';
+import { BRAND, BrandPalette } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
+import { useTheme } from '../../context/ThemeContext';
 
-
+// Accent-only maps — identical in both themes, safe as module-level constants
+const SUBJECT_COLORS: Record<string, string> = {
+  'Mathematics':    BRAND.blue,
+  'Physics':        '#8b5cf6',
+  'Chemistry':      BRAND.teal,
+  'Biology':        '#ec4899',
+  'English':        BRAND.yellow,
+  'History':        BRAND.red,
+  'Geography':      BRAND.teal,
+  'Computer Science': '#8b5cf6',
+  'Art':            '#ec4899',
+  'Music':          BRAND.yellow,
+};
+const subjectColor = (s: string) => SUBJECT_COLORS[s] || BRAND.blue;
 
 // ─── Professional Alert ──────────────────────────────────────────────────────
+const makeAlertStyles = (colors: BrandPalette) => StyleSheet.create({
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'center', alignItems: 'center', padding: 24,
+  },
+  card: {
+    borderRadius: 28, overflow: 'hidden',
+    width: '100%', maxWidth: 380,
+    padding: 32, alignItems: 'center',
+    borderWidth: 1, borderColor: colors.borderStrong,
+  },
+  iconRing: {
+    width: 80, height: 80, borderRadius: 40,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 20, borderWidth: 1,
+  },
+  title: {
+    fontSize: 22, fontWeight: '700', color: colors.textPrimary,
+    textAlign: 'center', marginBottom: 10, letterSpacing: -0.3,
+  },
+  message: {
+    fontSize: 15, color: colors.textSecondary,
+    textAlign: 'center', lineHeight: 22, marginBottom: 28,
+  },
+  btn: {
+    width: '100%', paddingVertical: 15, borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
+  },
+  btnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
+});
+
 const ProfessionalAlert = ({
   visible, onClose, title, message,
   type = 'info', actionText = 'OK', onAction,
@@ -32,11 +80,13 @@ const ProfessionalAlert = ({
   type?: 'info' | 'success' | 'warning' | 'error';
   actionText?: string; onAction?: () => void;
 }) => {
+  const { colors, mode } = useTheme();
+  const alertStyles = useMemo(() => makeAlertStyles(colors), [colors]);
   const palette = {
-    info:    { color: BRAND.blue,   dim: BRAND.blueDim  },
-    success: { color: BRAND.teal,   dim: BRAND.tealDim  },
-    warning: { color: BRAND.yellow, dim: BRAND.yellowDim},
-    error:   { color: BRAND.red,    dim: BRAND.redDim   },
+    info:    { color: colors.blue,   dim: colors.blueDim   },
+    success: { color: colors.teal,   dim: colors.tealDim   },
+    warning: { color: colors.yellow, dim: colors.yellowDim },
+    error:   { color: colors.red,    dim: colors.redDim    },
   };
   const iconMap = {
     info: 'information-circle', success: 'checkmark-circle',
@@ -49,9 +99,9 @@ const ProfessionalAlert = ({
       <View style={alertStyles.overlay}>
         <View style={alertStyles.card}>
           {Platform.OS === 'ios' ? (
-            <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+            <BlurView intensity={40} tint={mode === 'dark' ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
           ) : (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: '#1A1A1A' }]} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.surfaceAlt }]} />
           )}
           <View style={[alertStyles.iconRing, { backgroundColor: dim, borderColor: color + '40' }]}>
             <Icon name={iconMap[type] as any} size={38} color={color} />
@@ -70,55 +120,73 @@ const ProfessionalAlert = ({
   );
 };
 
-const alertStyles = StyleSheet.create({
-  overlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.75)',
-    justifyContent: 'center', alignItems: 'center', padding: 24,
-  },
-  card: {
-    borderRadius: 28, overflow: 'hidden',
-    width: '100%', maxWidth: 380,
-    padding: 32, alignItems: 'center',
-    borderWidth: 1, borderColor: BRAND.borderStrong,
-  },
-  iconRing: {
-    width: 80, height: 80, borderRadius: 40,
-    justifyContent: 'center', alignItems: 'center',
-    marginBottom: 20, borderWidth: 1,
-  },
-  title: {
-    fontSize: 22, fontWeight: '700', color: BRAND.textPrimary,
-    textAlign: 'center', marginBottom: 10, letterSpacing: -0.3,
-  },
-  message: {
-    fontSize: 15, color: BRAND.textSecondary,
-    textAlign: 'center', lineHeight: 22, marginBottom: 28,
-  },
-  btn: {
-    width: '100%', paddingVertical: 15, borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
-  },
-  btnText: { color: '#fff', fontSize: 17, fontWeight: '700', letterSpacing: 0.2 },
+// ─── Styles factory ───────────────────────────────────────────────────────────
+const makeStyles = (colors: BrandPalette) => StyleSheet.create({
+  container:      { flex: 1, backgroundColor: colors.bg },
+  loadingWrap:    { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
+  loadingTitle:   { marginTop: 16, fontSize: 17, color: colors.textPrimary, fontWeight: '600' },
+  loadingSubtitle:{ fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+
+  header:           { backgroundColor: colors.surface, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerAccentRow:  { flexDirection: 'row', height: 3 },
+  headerAccentDash: { flex: 1 },
+  headerContent:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 56 },
+  welcome:          { fontSize: 14, color: colors.textSecondary, letterSpacing: 0.3 },
+  userName:         { fontSize: 28, fontWeight: '800', color: colors.textPrimary, marginTop: 2, letterSpacing: -0.5 },
+  notifBtn:         { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' },
+
+  statsRow:     { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 20, gap: 10 },
+  statCard:     { flex: 1, padding: 14, alignItems: 'center' },
+  statIconWrap: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  statValue:    { fontSize: 22, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
+  statLabel:    { fontSize: 11, color: colors.textSecondary, marginTop: 2, fontWeight: '600', textAlign: 'center' },
+
+  section:        { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 },
+  sectionHeader:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, marginTop: 8 },
+  sectionTitleRow:{ flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionAccent:  { width: 3, height: 20, borderRadius: 2 },
+  sectionTitle:   { fontSize: 18, fontWeight: '700', color: colors.textPrimary, letterSpacing: -0.3 },
+  viewAll:        { fontSize: 13, fontWeight: '600' },
+
+  weekStrip:   { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, backgroundColor: colors.surface, borderRadius: 18, padding: 8, borderWidth: 1, borderColor: colors.border },
+  dayBtn:      { alignItems: 'center', paddingVertical: 10, paddingHorizontal: 6, borderRadius: 12, minWidth: 40, borderWidth: 1, borderColor: 'transparent' },
+  dayName:     { fontSize: 11, fontWeight: '600', color: colors.textSecondary, marginBottom: 4 },
+  dayNum:      { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
+  dayTextActive:{ color: '#fff' },
+  dot:         { width: 4, height: 4, borderRadius: 2, marginTop: 4 },
+
+  classCardInner:{ padding: 16 },
+  classTop:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  classSubject:  { fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
+  classTitle:    { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  timePill:      { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1, marginLeft: 8 },
+  timePillText:  { fontSize: 12, fontWeight: '700' },
+  classMeta:     { marginBottom: 12 },
+  classMetaRow:  { flexDirection: 'row', alignItems: 'center', marginBottom: 5, gap: 6 },
+  classMetaText: { fontSize: 13, color: colors.textSecondary },
+  classFooter:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
+  statusPill:    { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
+  statusText:    { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
+  swipeHint:     { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  swipeHintText: { fontSize: 11, color: colors.textMuted },
+
+  swipeOuter: { backgroundColor: colors.teal, justifyContent: 'center', alignItems: 'flex-end', flex: 1, borderRadius: 18, overflow: 'hidden' },
+  swipeInner: { width: 120, height: '100%', justifyContent: 'center', alignItems: 'center', gap: 4 },
+  swipeLabel: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  swipeSub:   { color: 'rgba(255,255,255,0.8)', fontSize: 11 },
+
+  activityCard:    {},
+  activityInner:   { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
+  activityIconWrap:{ width: 40, height: 40, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  activityTitle:   { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: 3 },
+  activityTime:    { fontSize: 12, color: colors.textSecondary },
+
+  empty:    { alignItems: 'center', paddingVertical: 40 },
+  emptyText:{ marginTop: 12, fontSize: 15, color: colors.textSecondary, fontWeight: '500' },
+  emptySub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
 });
 
-// ─── Subject colour map ──────────────────────────────────────────────────────
-const SUBJECT_COLORS: Record<string, string> = {
-  'Mathematics':    BRAND.blue,
-  'Physics':        '#8b5cf6',
-  'Chemistry':      BRAND.teal,
-  'Biology':        '#ec4899',
-  'English':        BRAND.yellow,
-  'History':        BRAND.red,
-  'Geography':      BRAND.teal,
-  'Computer Science': '#8b5cf6',
-  'Art':            '#ec4899',
-  'Music':          BRAND.yellow,
-};
-const subjectColor = (s: string) => SUBJECT_COLORS[s] || BRAND.blue;
-
-// ─── Interfaces ──────────────────────────────────────────────────────────────
+// ─── Interfaces ───────────────────────────────────────────────────────────────
 interface DashboardStats {
   newNotes: number;
   averageScore: number;
@@ -139,6 +207,7 @@ const StudentDashboardScreen = () => {
   const [classSchedule, setClassSchedule] = useState<ClassSchedule[]>([]);
   const [currentWeek, setCurrentWeek]   = useState<Date[]>([]);
   const [checkingIn, setCheckingIn]     = useState<string | null>(null);
+  const [unreadCount, setUnreadCount]   = useState(0);
 
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertConfig, setAlertConfig]   = useState({
@@ -147,6 +216,9 @@ const StudentDashboardScreen = () => {
     actionText: 'OK',
     onAction: undefined as (() => void) | undefined,
   });
+
+  const { colors: BRAND } = useTheme();
+  const s = useMemo(() => makeStyles(BRAND), [BRAND]);
 
   const swipeableRefs  = useRef<{ [key: string]: Swipeable | null }>({});
   const notifListener  = useRef<Notifications.Subscription | null>(null);
@@ -162,11 +234,17 @@ const StudentDashboardScreen = () => {
     ).start();
   }, []);
 
-  // ── effects ────────────────────────────────────────────────────────────────
   useEffect(() => {
     registerForPushNotificationsAsync().catch(console.error);
-    notifListener.current = Notifications.addNotificationReceivedListener(() => loadDashboardData());
+    notifListener.current = Notifications.addNotificationReceivedListener(() => {
+      loadDashboardData();
+      getNotifications(1, true).then(r => setUnreadCount(r.unreadCount)).catch(() => {});
+    });
     return () => { notifListener.current?.remove(); };
+  }, []);
+
+  useEffect(() => {
+    getNotifications(1, true).then(r => setUnreadCount(r.unreadCount)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -180,7 +258,6 @@ const StudentDashboardScreen = () => {
 
   useEffect(() => { loadDashboardData(); }, []);
 
-  // ── helpers ────────────────────────────────────────────────────────────────
   const showAlert = (
     title: string, message: string,
     type: 'info' | 'success' | 'warning' | 'error' = 'info',
@@ -207,7 +284,6 @@ const StudentDashboardScreen = () => {
     return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
   };
 
-  // ── data ───────────────────────────────────────────────────────────────────
   const loadDashboardData = async () => {
     try {
       const [notesData, marksData, profileData, upcomingData] = await Promise.all([
@@ -277,7 +353,6 @@ const StudentDashboardScreen = () => {
     }
   };
 
-  // ── schedule helpers ───────────────────────────────────────────────────────
   const getClassesForDate = () => {
     const ds = selectedDate.toISOString().split('T')[0];
     return classSchedule
@@ -292,7 +367,6 @@ const StudentDashboardScreen = () => {
       new Date(c.scheduledDate).toISOString().split('T')[0] === ds && c.status === 'scheduled');
   };
 
-  // ── swipe action ───────────────────────────────────────────────────────────
   const renderRightActions = (progress: any, dragX: any, classItem: ClassSchedule) => {
     if (classItem.status !== 'scheduled' && classItem.status !== 'ongoing') return null;
     const trans = dragX.interpolate({ inputRange: [-120, 0], outputRange: [0, 120], extrapolate: 'clamp' });
@@ -321,7 +395,6 @@ const StudentDashboardScreen = () => {
     );
   };
 
-  // ── loading state ──────────────────────────────────────────────────────────
   if (loading) {
     return (
       <View style={s.loadingWrap}>
@@ -335,7 +408,6 @@ const StudentDashboardScreen = () => {
   const todayClasses = getClassesForDate();
   const BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_OFFSET + 16;
 
-  // ── render ─────────────────────────────────────────────────────────────────
   return (
     <>
       <ScrollView
@@ -353,7 +425,6 @@ const StudentDashboardScreen = () => {
 
         {/* ── HEADER ─────────────────────────────────────────────────────── */}
         <View style={s.header}>
-          {/* coloured chevron accent strip */}
           <View style={s.headerAccentRow}>
             {[BRAND.red, BRAND.yellow, BRAND.teal, BRAND.blue].map((c, i) => (
               <View key={i} style={[s.headerAccentDash, { backgroundColor: c }]} />
@@ -364,8 +435,18 @@ const StudentDashboardScreen = () => {
               <Text style={s.welcome}>Welcome back,</Text>
               <Text style={s.userName}>{user?.name}!</Text>
             </View>
-            <TouchableOpacity style={s.notifBtn}>
+            <TouchableOpacity
+              style={s.notifBtn}
+              onPress={() => navigation.navigate('NotificationList')}
+            >
               <Icon name="notifications-outline" size={22} color={BRAND.textPrimary} />
+              {unreadCount > 0 && (
+                <View style={{
+                  position: 'absolute', top: 6, right: 6,
+                  width: 8, height: 8, borderRadius: 4,
+                  backgroundColor: BRAND.red,
+                }} />
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -373,9 +454,9 @@ const StudentDashboardScreen = () => {
         {/* ── STATS ROW ──────────────────────────────────────────────────── */}
         <View style={s.statsRow}>
           {[
-            { icon: 'document-text', value: stats.newNotes,     label: 'New Notes', color: BRAND.blue,   dim: BRAND.blueDim   },
+            { icon: 'document-text', value: stats.newNotes,          label: 'New Notes',  color: BRAND.blue,   dim: BRAND.blueDim   },
             { icon: 'trophy',        value: `${stats.averageScore}%`, label: 'Avg. Score', color: BRAND.yellow, dim: BRAND.yellowDim },
-            { icon: 'school',        value: stats.subjectCount, label: 'Subjects',  color: BRAND.red,    dim: BRAND.redDim    },
+            { icon: 'school',        value: stats.subjectCount,       label: 'Subjects',   color: BRAND.red,    dim: BRAND.redDim    },
           ].map((item, i) => (
             <GlassCard key={i} style={s.statCard} accentColor={item.color} accentSide="top">
               <View style={[s.statIconWrap, { backgroundColor: item.dim }]}>
@@ -558,79 +639,5 @@ const StudentDashboardScreen = () => {
     </>
   );
 };
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  container:     { flex: 1, backgroundColor: BRAND.bg },
-  loadingWrap:   { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.bg },
-  loadingTitle:  { marginTop: 16, fontSize: 17, color: BRAND.textPrimary, fontWeight: '600' },
-  loadingSubtitle:{ fontSize: 13, color: BRAND.textSecondary, marginTop: 4 },
-
-  // Header
-  header: { backgroundColor: BRAND.surface, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: BRAND.border },
-  headerAccentRow: { flexDirection: 'row', height: 3 },
-  headerAccentDash: { flex: 1 },
-  headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 56 },
-  welcome:       { fontSize: 14, color: BRAND.textSecondary, letterSpacing: 0.3 },
-  userName:      { fontSize: 28, fontWeight: '800', color: BRAND.textPrimary, marginTop: 2, letterSpacing: -0.5 },
-  notifBtn:      { width: 44, height: 44, borderRadius: 14, backgroundColor: BRAND.surfaceAlt, borderWidth: 1, borderColor: BRAND.border, justifyContent: 'center', alignItems: 'center' },
-
-  // Stats
-  statsRow:      { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 20, gap: 10 },
-  statCard:      { flex: 1, padding: 14, alignItems: 'center' },
-  statIconWrap:  { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  statValue:     { fontSize: 22, fontWeight: '800', color: BRAND.textPrimary, letterSpacing: -0.5 },
-  statLabel:     { fontSize: 11, color: BRAND.textSecondary, marginTop: 2, fontWeight: '600', textAlign: 'center' },
-
-  // Section
-  section:       { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, marginTop: 8 },
-  sectionTitleRow:{ flexDirection: 'row', alignItems: 'center', gap: 8 },
-  sectionAccent: { width: 3, height: 20, borderRadius: 2 },
-  sectionTitle:  { fontSize: 18, fontWeight: '700', color: BRAND.textPrimary, letterSpacing: -0.3 },
-  viewAll:       { fontSize: 13, fontWeight: '600' },
-
-  // Week strip
-  weekStrip:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, backgroundColor: BRAND.surface, borderRadius: 18, padding: 8, borderWidth: 1, borderColor: BRAND.border },
-  dayBtn:        { alignItems: 'center', paddingVertical: 10, paddingHorizontal: 6, borderRadius: 12, minWidth: 40, borderWidth: 1, borderColor: 'transparent' },
-  dayName:       { fontSize: 11, fontWeight: '600', color: BRAND.textSecondary, marginBottom: 4 },
-  dayNum:        { fontSize: 15, fontWeight: '700', color: BRAND.textPrimary },
-  dayTextActive: { color: '#fff' },
-  dot:           { width: 4, height: 4, borderRadius: 2, marginTop: 4 },
-
-  // Class card
-  classCardInner:{ padding: 16 },
-  classTop:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  classSubject:  { fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
-  classTitle:    { fontSize: 13, color: BRAND.textSecondary, marginTop: 2 },
-  timePill:      { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1, marginLeft: 8 },
-  timePillText:  { fontSize: 12, fontWeight: '700' },
-  classMeta:     { marginBottom: 12 },
-  classMetaRow:  { flexDirection: 'row', alignItems: 'center', marginBottom: 5, gap: 6 },
-  classMetaText: { fontSize: 13, color: BRAND.textSecondary },
-  classFooter:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: BRAND.border, paddingTop: 10 },
-  statusPill:    { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
-  statusText:    { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
-  swipeHint:     { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  swipeHintText: { fontSize: 11, color: BRAND.textMuted },
-
-  // Swipe action
-  swipeOuter:    { backgroundColor: BRAND.teal, justifyContent: 'center', alignItems: 'flex-end', flex: 1, borderRadius: 18, overflow: 'hidden' },
-  swipeInner:    { width: 120, height: '100%', justifyContent: 'center', alignItems: 'center', gap: 4 },
-  swipeLabel:    { color: '#fff', fontWeight: '700', fontSize: 14 },
-  swipeSub:      { color: 'rgba(255,255,255,0.8)', fontSize: 11 },
-
-  // Activity
-  activityCard:  {},
-  activityInner: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
-  activityIconWrap:{ width: 40, height: 40, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
-  activityTitle: { fontSize: 14, fontWeight: '600', color: BRAND.textPrimary, marginBottom: 3 },
-  activityTime:  { fontSize: 12, color: BRAND.textSecondary },
-
-  // Empty
-  empty:         { alignItems: 'center', paddingVertical: 40 },
-  emptyText:     { marginTop: 12, fontSize: 15, color: BRAND.textSecondary, fontWeight: '500' },
-  emptySub:      { fontSize: 13, color: BRAND.textMuted, marginTop: 4 },
-});
 
 export default StudentDashboardScreen;

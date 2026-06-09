@@ -1,18 +1,51 @@
 // src/screens/shared/NotificationSettingsScreen.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, Linking, Platform,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { BRAND } from '../../components/theme';
+import { BrandPalette } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
 import { Icon } from '../../components/Icon';
 import { registerForPushNotificationsAsync, removePushToken } from '../../utils/notifications';
+import { useTheme } from '../../context/ThemeContext';
 
 type PermissionState = 'granted' | 'denied' | 'undetermined' | 'loading';
 
+const makeStyles = (colors: BrandPalette) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg, padding: 16, paddingTop: 24 },
+  centered:  { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
+
+  card: { padding: 28, alignItems: 'center', marginBottom: 16 },
+
+  iconWrap: {
+    width: 80, height: 80, borderRadius: 40,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 20,
+  },
+  title: {
+    fontSize: 20, fontWeight: '700', color: colors.textPrimary,
+    textAlign: 'center', marginBottom: 12,
+  },
+  body: {
+    fontSize: 14, color: colors.textSecondary, textAlign: 'center',
+    lineHeight: 22, marginBottom: 24,
+  },
+  button: {
+    width: '100%', padding: 16, borderRadius: 16, alignItems: 'center',
+    borderWidth: 1,
+  },
+  buttonText: { fontSize: 15, fontWeight: '700' },
+
+  hintCard:  { padding: 20 },
+  hintTitle: { fontSize: 14, fontWeight: '700', color: colors.textPrimary, marginBottom: 8 },
+  hintBody:  { fontSize: 13, color: colors.textSecondary, lineHeight: 20 },
+});
+
 const NotificationSettingsScreen = () => {
+  const { colors: BRAND } = useTheme();
+  const s = useMemo(() => makeStyles(BRAND), [BRAND]);
+
   const [permissionState, setPermissionState] = useState<PermissionState>('loading');
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -37,7 +70,6 @@ const NotificationSettingsScreen = () => {
     setActionLoading(true);
     try {
       await removePushToken();
-      // We don't revoke OS permission — just clear the backend token
       setPermissionState('denied');
     } finally {
       setActionLoading(false);
@@ -142,34 +174,5 @@ const NotificationSettingsScreen = () => {
     </View>
   );
 };
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BRAND.bg, padding: 16, paddingTop: 24 },
-  centered:  { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.bg },
-
-  card: { padding: 28, alignItems: 'center', marginBottom: 16 },
-
-  iconWrap: {
-    width: 80, height: 80, borderRadius: 40,
-    justifyContent: 'center', alignItems: 'center', marginBottom: 20,
-  },
-  title: {
-    fontSize: 20, fontWeight: '700', color: BRAND.textPrimary,
-    textAlign: 'center', marginBottom: 12,
-  },
-  body: {
-    fontSize: 14, color: BRAND.textSecondary, textAlign: 'center',
-    lineHeight: 22, marginBottom: 24,
-  },
-  button: {
-    width: '100%', padding: 16, borderRadius: 16, alignItems: 'center',
-    borderWidth: 1,
-  },
-  buttonText: { fontSize: 15, fontWeight: '700' },
-
-  hintCard: { padding: 20 },
-  hintTitle: { fontSize: 14, fontWeight: '700', color: BRAND.textPrimary, marginBottom: 8 },
-  hintBody:  { fontSize: 13, color: BRAND.textSecondary, lineHeight: 20 },
-});
 
 export default NotificationSettingsScreen;

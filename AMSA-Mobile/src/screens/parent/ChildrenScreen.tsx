@@ -1,5 +1,5 @@
 // src/screens/parent/ChildrenScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, Alert, Image,
@@ -11,12 +11,10 @@ import { useNavigation } from '@react-navigation/native';
 import { Icon } from '../../components/Icon';
 import BouncingDotsLoader from '../../components/BouncingDotsLoader';
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
-import { BRAND } from '../../components/theme';
+import { BrandPalette } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
+import { useTheme } from '../../context/ThemeContext';
 
-
-
-// ─── Interfaces ───────────────────────────────────────────────────────────────
 interface Child {
   _id: string;
   user: { _id: string; name: string; email: string };
@@ -24,15 +22,62 @@ interface Child {
   subjects: string[];
 }
 
+// ─── Styles factory ───────────────────────────────────────────────────────────
+const makeStyles = (colors: BrandPalette) => StyleSheet.create({
+  container:   { flex: 1, backgroundColor: colors.bg },
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
+  loadingText: { marginTop: 12, fontSize: 15, color: colors.textSecondary },
+
+  header:           { backgroundColor: colors.surface, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerAccentRow:  { flexDirection: 'row', height: 3 },
+  headerAccentDash: { flex: 1 },
+  headerContent:    { paddingHorizontal: 20, paddingTop: 56 },
+  title:            { fontSize: 28, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5 },
+  subtitle:         { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
+
+  list: { flex: 1 },
+
+  childCard:   { marginBottom: 14 },
+  childHeader: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+  avatar: {
+    width: 56, height: 56, borderRadius: 28,
+    overflow: 'hidden', marginRight: 14,
+    shadowColor: colors.teal, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 8, elevation: 6,
+  },
+  avatarText:  { fontSize: 20, fontWeight: '800', color: '#fff' },
+  childInfo:   { flex: 1 },
+  childName:   { fontSize: 18, fontWeight: '700', color: colors.textPrimary, letterSpacing: -0.3 },
+  childGrade:  { fontSize: 13, color: colors.textSecondary, marginTop: 3 },
+  divider:     { height: 1, backgroundColor: colors.border, marginHorizontal: 16 },
+
+  subjectsWrap:  { padding: 16, paddingBottom: 12 },
+  subjectsLabel: { fontSize: 11, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
+  subjectsList:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  subjectTag:    { backgroundColor: colors.tealDim, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: colors.teal + '44' },
+  subjectText:   { fontSize: 12, color: colors.teal, fontWeight: '600' },
+
+  actionsRow:    { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, gap: 8 },
+  actionBtn:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 12, gap: 5, borderWidth: 1 },
+  actionBtnText: { fontSize: 11, fontWeight: '600' },
+
+  empty:        { alignItems: 'center', paddingVertical: 60 },
+  emptyIconRing:{ width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  emptyTitle:   { fontSize: 16, fontWeight: '600', color: colors.textSecondary, textAlign: 'center' },
+  emptySub:     { fontSize: 13, color: colors.textMuted, textAlign: 'center', marginTop: 6 },
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 // SCREEN
 // ════════════════════════════════════════════════════════════════════════════
 const ParentChildrenScreen = () => {
-  const [children, setChildren] = useState<Child[]>([]);
-  const [loading, setLoading]   = useState(true);
+  const [children, setChildren]     = useState<Child[]>([]);
+  const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { logout } = useAuth();
   const navigation = useNavigation();
+  const { colors: BRAND } = useTheme();
+  const s = useMemo(() => makeStyles(BRAND), [BRAND]);
 
   const loadChildren = async () => {
     try {
@@ -74,10 +119,8 @@ const ParentChildrenScreen = () => {
           ))}
         </View>
         <View style={s.headerContent}>
-          <View>
-            <Text style={s.title}>My Children</Text>
-            <Text style={s.subtitle}>{children.length} children registered</Text>
-          </View>
+          <Text style={s.title}>My Children</Text>
+          <Text style={s.subtitle}>{children.length} children registered</Text>
         </View>
       </View>
 
@@ -86,38 +129,17 @@ const ParentChildrenScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: BOTTOM_PAD }}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={BRAND.red}
-            colors={[BRAND.red]}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND.red} colors={[BRAND.red]} />
         }
       >
         {children.length > 0 ? children.map((child) => {
           const childActions = [
-            {
-              icon: 'school-outline',
-              label: 'View Marks',
-              color: BRAND.teal,
-              onPress: () => (navigation as any).navigate('Marks', { childId: child._id }),
-            },
-            {
-              icon: 'calendar-outline',
-              label: 'Attendance',
-              color: BRAND.red,
-              onPress: () => Alert.alert('Coming Soon', 'Attendance details will be available in a future update.'),
-            },
-            {
-              icon: 'chatbubble-outline',
-              label: 'Message',
-              color: BRAND.yellow,
-              onPress: () => Alert.alert('Coming Soon', 'Messaging will be available in a future update.'),
-            },
+            { icon: 'school-outline',    label: 'View Marks', color: BRAND.teal,   onPress: () => (navigation as any).navigate('Marks', { childId: child._id }) },
+            { icon: 'calendar-outline',  label: 'Attendance', color: BRAND.red,    onPress: () => Alert.alert('Coming Soon', 'Attendance details will be available in a future update.') },
+            { icon: 'chatbubble-outline', label: 'Message',   color: BRAND.yellow, onPress: () => Alert.alert('Coming Soon', 'Messaging will be available in a future update.') },
           ];
           return (
             <GlassCard key={child._id} accentColor={BRAND.teal} style={s.childCard}>
-              {/* Child header */}
               <View style={s.childHeader}>
                 <Image source={{ uri: getAvatarUrl(child.user.name) }} style={s.avatar} />
                 <View style={s.childInfo}>
@@ -126,10 +148,8 @@ const ParentChildrenScreen = () => {
                 </View>
               </View>
 
-              {/* Divider */}
               <View style={s.divider} />
 
-              {/* Subjects */}
               <View style={s.subjectsWrap}>
                 <Text style={s.subjectsLabel}>Subjects</Text>
                 <View style={s.subjectsList}>
@@ -141,7 +161,6 @@ const ParentChildrenScreen = () => {
                 </View>
               </View>
 
-              {/* Actions */}
               <View style={s.actionsRow}>
                 {childActions.map((action, idx) => (
                   <TouchableOpacity
@@ -169,56 +188,5 @@ const ParentChildrenScreen = () => {
     </View>
   );
 };
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: BRAND.bg },
-  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BRAND.bg },
-  loadingText: { marginTop: 12, fontSize: 15, color: BRAND.textSecondary },
-
-  // Header
-  header:           { backgroundColor: BRAND.surface, paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: BRAND.border },
-  headerAccentRow:  { flexDirection: 'row', height: 3 },
-  headerAccentDash: { flex: 1 },
-  headerContent:    { paddingHorizontal: 20, paddingTop: 56 },
-  title:            { fontSize: 28, fontWeight: '800', color: BRAND.textPrimary, letterSpacing: -0.5 },
-  subtitle:         { fontSize: 13, color: BRAND.textSecondary, marginTop: 4 },
-
-  list: { flex: 1 },
-
-  // Child card
-  childCard:   { marginBottom: 14 },
-  childHeader: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-  avatar: {
-    width: 56, height: 56, borderRadius: 28,
-    overflow: 'hidden',
-    marginRight: 14,
-    shadowColor: BRAND.teal, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35, shadowRadius: 8, elevation: 6,
-  },
-  avatarText:  { fontSize: 20, fontWeight: '800', color: '#fff' },
-  childInfo:   { flex: 1 },
-  childName:   { fontSize: 18, fontWeight: '700', color: BRAND.textPrimary, letterSpacing: -0.3 },
-  childGrade:  { fontSize: 13, color: BRAND.textSecondary, marginTop: 3 },
-  divider: { height: 1, backgroundColor: BRAND.border, marginHorizontal: 16 },
-
-  // Subjects
-  subjectsWrap:  { padding: 16, paddingBottom: 12 },
-  subjectsLabel: { fontSize: 11, fontWeight: '700', color: BRAND.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
-  subjectsList:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  subjectTag:    { backgroundColor: BRAND.tealDim, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 16, borderWidth: 1, borderColor: BRAND.teal + '44' },
-  subjectText:   { fontSize: 12, color: BRAND.teal, fontWeight: '600' },
-
-  // Actions
-  actionsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, gap: 8 },
-  actionBtn:  { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 12, gap: 5, borderWidth: 1 },
-  actionBtnText: { fontSize: 11, fontWeight: '600' },
-
-  // Empty
-  empty:        { alignItems: 'center', paddingVertical: 60 },
-  emptyIconRing:{ width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: BRAND.border, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  emptyTitle:   { fontSize: 16, fontWeight: '600', color: BRAND.textSecondary, textAlign: 'center' },
-  emptySub:     { fontSize: 13, color: BRAND.textMuted, textAlign: 'center', marginTop: 6 },
-});
 
 export default ParentChildrenScreen;
