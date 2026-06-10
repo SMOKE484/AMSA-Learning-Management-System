@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Updates from 'expo-updates';
 import { BlurView } from 'expo-blur';
 
 // Import custom Icon component
@@ -456,7 +457,19 @@ const App: React.FC = () => {
     (async () => {
       try {
         await Font.loadAsync({});
-        console.log('✅ Assets loaded');
+
+        if (!__DEV__ && Updates.isEnabled) {
+          try {
+            const update = await Updates.checkForUpdateAsync();
+            if (update.isAvailable) {
+              await Updates.fetchUpdateAsync();
+              await Updates.reloadAsync();
+              return;
+            }
+          } catch {
+            // don't block launch if update check fails
+          }
+        }
       } catch (e) {
         console.error('❌ Asset loading error:', e);
       } finally {
