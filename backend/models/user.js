@@ -23,7 +23,27 @@ const userSchema = new Schema(
     },
     pushToken: {
       type: String,
-      default: null, 
+      default: null,
+    },
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationOTP: {
+      type: String,
+      default: null,
+    },
+    emailVerificationExpiry: {
+      type: Date,
+      default: null,
+    },
+    passwordResetOTP: {
+      type: String,
+      default: null,
+    },
+    passwordResetExpiry: {
+      type: Date,
+      default: null,
     },
     dateCreated: {
       type: Date,
