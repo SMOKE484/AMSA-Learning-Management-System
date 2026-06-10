@@ -27,6 +27,10 @@ const CONFIGS = {
 };
 
 export const sendOTPEmail = async (to, name, otp, purpose) => {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    throw new Error('Gmail SMTP credentials not configured (GMAIL_USER / GMAIL_APP_PASSWORD missing in environment)');
+  }
+
   const cfg = CONFIGS[purpose];
 
   const html = `
