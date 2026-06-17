@@ -48,7 +48,7 @@ const ClassAttendance = () => {
   const [markSectionOpen, setMarkSectionOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState('');
   const [markStatuses, setMarkStatuses] = useState({});
-  const [markingStudentId, setMarkingStudentId] = useState(null);
+  const [savingAll, setSavingAll] = useState(false);
   const [classAttendanceMap, setClassAttendanceMap] = useState({});
 
   const { showSnackbar } = useSnackbar();
@@ -116,22 +116,18 @@ const ClassAttendance = () => {
     setMarkStatuses(initial);
   };
 
-  const handleMarkStudent = async (studentId) => {
+  const handleSaveAll = async () => {
     if (!selectedClassId) return;
     try {
-      setMarkingStudentId(studentId);
-      await api.post(`/attendance/classes/${selectedClassId}/mark-student`, {
-        studentId,
-        status: markStatuses[studentId] || 'present',
-        reason: 'Marked by admin'
-      });
-      showSnackbar('Attendance saved.', 'success');
-      // Refresh data to reflect change
+      setSavingAll(true);
+      const students = Object.entries(markStatuses).map(([studentId, status]) => ({ studentId, status }));
+      await api.post(`/attendance/classes/${selectedClassId}/mark-batch`, { students });
+      showSnackbar(`Attendance saved for ${students.length} student(s).`, 'success');
       fetchData();
     } catch (err) {
-      showSnackbar(err.response?.data?.message || 'Failed to mark attendance.', 'error');
+      showSnackbar(err.response?.data?.message || 'Failed to save attendance.', 'error');
     } finally {
-      setMarkingStudentId(null);
+      setSavingAll(false);
     }
   };
 
@@ -293,7 +289,6 @@ const ClassAttendance = () => {
                       <TableCell sx={{ fontWeight: 600 }}>Grade</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Current Status</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Mark As</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -334,23 +329,25 @@ const ClassAttendance = () => {
                               <MenuItem value="excused">Excused</MenuItem>
                             </Select>
                           </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="contained"
-                              size="small"
-                              disabled={markingStudentId === strId}
-                              onClick={() => handleMarkStudent(strId)}
-                              sx={{ fontWeight: 600, borderRadius: 1 }}
-                            >
-                              {markingStudentId === strId ? 'Saving...' : 'Save'}
-                            </Button>
-                          </TableCell>
                         </TableRow>
                       );
                     })}
                   </TableBody>
                 </Table>
               </TableContainer>
+            )}
+
+            {selectedClassId && enrolledStudents.length > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                <Button
+                  variant="contained"
+                  disabled={savingAll}
+                  onClick={handleSaveAll}
+                  sx={{ fontWeight: 600, minWidth: 140 }}
+                >
+                  {savingAll ? 'Saving…' : 'Save All'}
+                </Button>
+              </Box>
             )}
           </Box>
         </Collapse>
