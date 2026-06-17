@@ -7,12 +7,9 @@ export const authService = {
   async login(email: string, password: string) {
     try {
       console.log('🔐 Attempting login with:', { email });
-      
-      const response = await api.post('/auth/login', { 
-        email, 
-        password 
-      });
-      
+
+      const response = await api.post('/auth/login', { email, password });
+
       console.log('✅ Login response:', response.data);
 
       if (response.data.token && response.data.user) {
@@ -22,7 +19,7 @@ export const authService = {
       } else {
         console.warn('⚠️ No token or user in response');
       }
-      
+
       return response.data;
     } catch (error: any) {
       console.error('❌ Login service error:', {

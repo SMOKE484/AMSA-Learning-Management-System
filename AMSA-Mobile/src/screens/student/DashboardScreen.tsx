@@ -8,7 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { studentService, ClassSchedule } from '../../services/student';
 import { getNotifications } from '../../services/notifications';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
-import { RootStackParamList } from '../../types/navigation';
+import { RootStackParamList, StudentStackParamList } from '../../types/navigation';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Application from 'expo-application';
 import * as Location from 'expo-location';
@@ -181,6 +181,15 @@ const makeStyles = (colors: BrandPalette) => StyleSheet.create({
   activityTitle:   { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: 3 },
   activityTime:    { fontSize: 12, color: colors.textSecondary },
 
+  verifyBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginHorizontal: 16, marginTop: 12, marginBottom: 4,
+    padding: 14, borderRadius: 14,
+    borderWidth: 1,
+  },
+  verifyBannerText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  verifyBannerLink: { fontSize: 13, fontWeight: '700' },
+
   empty:    { alignItems: 'center', paddingVertical: 40 },
   emptyText:{ marginTop: 12, fontSize: 15, color: colors.textSecondary, fontWeight: '500' },
   emptySub: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
@@ -198,7 +207,7 @@ interface DashboardStats {
 // ════════════════════════════════════════════════════════════════════════════
 const StudentDashboardScreen = () => {
   const { user, logout } = useAuth();
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<NavigationProp<StudentStackParamList>>();
   const [stats, setStats]               = useState<DashboardStats>({ newNotes: 0, averageScore: 0, subjectCount: 0 });
   const [refreshing, setRefreshing]     = useState(false);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
@@ -450,6 +459,7 @@ const StudentDashboardScreen = () => {
             </TouchableOpacity>
           </View>
         </View>
+
 
         {/* ── STATS ROW ──────────────────────────────────────────────────── */}
         <View style={s.statsRow}>

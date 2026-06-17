@@ -5,13 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../services/auth';
 import { registerUnauthenticatedHandler } from '../services/api';
 import { registerForPushNotificationsAsync } from '../utils/notifications';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
+import { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
@@ -72,23 +66,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       registerForPushNotificationsAsync().catch(() => {});
     } catch (error: any) {
       console.error('💥 Login context error:', error);
-      
-      // More specific error messages
+
       if (error.response) {
-        // Server responded with error status
         const message = error.response.data?.message || 'Login failed';
         Alert.alert('Login Failed', message);
       } else if (error.request) {
-        // Request was made but no response received
         Alert.alert(
-          'Connection Error', 
+          'Connection Error',
           'Cannot connect to server. Please check:\n\n• Your internet connection\n• Server is running\n• Correct API URL'
         );
       } else {
-        // Something else happened
         Alert.alert('Error', 'An unexpected error occurred');
       }
-      
+
       throw error;
     }
   };

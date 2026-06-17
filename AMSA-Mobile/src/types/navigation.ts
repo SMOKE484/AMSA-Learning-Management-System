@@ -29,7 +29,6 @@ export type ParentStackParamList = {
   NotificationList: undefined;
 };
 
-// This helps TypeScript know what screens exist and what params they accept
 declare global {
   namespace ReactNavigation {
     interface RootParamList extends RootStackParamList {}

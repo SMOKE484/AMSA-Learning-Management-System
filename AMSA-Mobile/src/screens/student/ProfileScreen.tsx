@@ -229,6 +229,10 @@ const StudentProfileScreen = () => {
   const handleUploadPhoto = async () => {
     setPickerVisible(false);
     await new Promise(r => setTimeout(r, 350));
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow photo library access in Settings.'); return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaType.Images,
       allowsEditing: true,

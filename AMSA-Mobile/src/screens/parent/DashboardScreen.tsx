@@ -72,6 +72,15 @@ const makeStyles = (colors: BrandPalette) => StyleSheet.create({
   activityTitle:    { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: 3 },
   activityTime:     { fontSize: 12, color: colors.textSecondary },
 
+  verifyBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginHorizontal: 16, marginTop: 12, marginBottom: 4,
+    padding: 14, borderRadius: 14,
+    borderWidth: 1,
+  },
+  verifyBannerText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  verifyBannerLink: { fontSize: 13, fontWeight: '700' },
+
   empty:    { alignItems: 'center', paddingVertical: 40 },
   emptyText:{ marginTop: 12, fontSize: 15, color: colors.textSecondary, fontWeight: '500' },
 });
