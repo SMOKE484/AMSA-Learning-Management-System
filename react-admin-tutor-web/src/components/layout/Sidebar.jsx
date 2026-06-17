@@ -1,10 +1,11 @@
-import React from 'react';
-import { 
-  Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, 
-  Toolbar, Box, Divider 
+import React, { useState, useEffect } from 'react';
+import {
+  Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText,
+  Toolbar, Box, Divider, Badge
 } from '@mui/material';
 import { useAuth } from '../../hooks/useAuth'; // Adjusted path based on your structure
 import { Link, useLocation } from 'react-router-dom';
+import api from '../../services/apiService';
 
 // Icons
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -25,6 +26,14 @@ const drawerWidth = 260;
 const Sidebar = () => {
   const { role } = useAuth();
   const location = useLocation();
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+
+  useEffect(() => {
+    api.get('/messages').then(res => {
+      const total = (res.data.conversations || []).reduce((sum, c) => sum + (c.unreadByAdmin || 0), 0);
+      setUnreadMsgCount(total);
+    }).catch(() => {});
+  }, []);
 
   // Admin Links
   const adminLinks = [
@@ -95,11 +104,15 @@ const Sidebar = () => {
                   }
                 }}
               >
-                <ListItemIcon sx={{ 
-                  color: location.pathname === item.path ? 'inherit' : '#64748b', 
-                  minWidth: 45 
+                <ListItemIcon sx={{
+                  color: location.pathname === item.path ? 'inherit' : '#64748b',
+                  minWidth: 45
                 }}>
-                  {item.icon}
+                  {item.text === 'Messages' && unreadMsgCount > 0 ? (
+                    <Badge badgeContent={unreadMsgCount > 99 ? '99+' : unreadMsgCount} color="error">
+                      {item.icon}
+                    </Badge>
+                  ) : item.icon}
                 </ListItemIcon>
                 <ListItemText 
                   primary={item.text} 

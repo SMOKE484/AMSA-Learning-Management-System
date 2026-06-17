@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { parentService } from '../../services/parent';
 import { getNotifications } from '../../services/notifications';
+import { messageService } from '../../services/messages';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { ParentStackParamList } from '../../types/navigation';
 import { registerForPushNotificationsAsync } from '../../utils/notifications';
@@ -96,6 +97,7 @@ const ParentDashboardScreen = () => {
   const [loading, setLoading]         = useState(true);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [unreadCount, setUnreadCount]       = useState(0);
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
 
   const { colors: BRAND } = useTheme();
   const s = useMemo(() => makeStyles(BRAND), [BRAND]);
@@ -135,6 +137,9 @@ const ParentDashboardScreen = () => {
   useEffect(() => {
     loadDashboardData();
     getNotifications(1, true).then(r => setUnreadCount(r.unreadCount)).catch(() => {});
+    messageService.getConversations().then(({ conversations }) => {
+      setUnreadMsgCount(conversations.reduce((sum, c) => sum + (c.unreadByParent || 0), 0));
+    }).catch(() => {});
     registerForPushNotificationsAsync().catch(console.error);
     notificationListener.current = Notifications.addNotificationReceivedListener(() => {
       loadDashboardData();
@@ -150,10 +155,10 @@ const ParentDashboardScreen = () => {
   };
 
   const quickActions = [
-    { icon: 'people',        title: 'My Children', color: BRAND.teal,   dim: BRAND.tealDim,   onPress: () => navigation.navigate('Children' as never) },
-    { icon: 'school',        title: 'View Marks',  color: BRAND.red,    dim: BRAND.redDim,    onPress: () => navigation.navigate('Marks' as never) },
-    { icon: 'notifications', title: 'Alerts',      color: BRAND.yellow, dim: BRAND.yellowDim, onPress: () => navigation.navigate('NotificationList') },
-    { icon: 'chatbubble',    title: 'Messages',    color: BRAND.blue,   dim: BRAND.blueDim,   onPress: () => navigation.navigate('Messages' as never) },
+    { icon: 'people',        title: 'My Children', color: BRAND.teal,   dim: BRAND.tealDim,   badge: 0,              onPress: () => navigation.navigate('Children' as never) },
+    { icon: 'school',        title: 'View Marks',  color: BRAND.red,    dim: BRAND.redDim,    badge: 0,              onPress: () => navigation.navigate('Marks' as never) },
+    { icon: 'notifications', title: 'Alerts',      color: BRAND.yellow, dim: BRAND.yellowDim, badge: 0,              onPress: () => navigation.navigate('NotificationList') },
+    { icon: 'chatbubble',    title: 'Messages',    color: BRAND.blue,   dim: BRAND.blueDim,   badge: unreadMsgCount, onPress: () => navigation.navigate('Messages' as never) },
   ];
 
   if (loading) {
@@ -242,6 +247,19 @@ const ParentDashboardScreen = () => {
                 <View style={s.actionCardInner}>
                   <View style={[s.actionIconWrap, { backgroundColor: action.dim, borderColor: action.color + '44' }]}>
                     <Icon name={action.icon as any} size={28} color={action.color} />
+                    {action.badge > 0 && (
+                      <View style={{
+                        position: 'absolute', top: -4, right: -4,
+                        minWidth: 18, height: 18, borderRadius: 9,
+                        backgroundColor: BRAND.red,
+                        justifyContent: 'center', alignItems: 'center',
+                        paddingHorizontal: 4,
+                      }}>
+                        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', lineHeight: 14 }}>
+                          {action.badge > 99 ? '99+' : String(action.badge)}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                   <Text style={s.actionText}>{action.title}</Text>
                 </View>
