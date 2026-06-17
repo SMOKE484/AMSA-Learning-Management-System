@@ -21,6 +21,7 @@ import ManageMarks from './pages/Admin/ManageMarks';
 import ManageAdmins from './pages/Admin/ManageAdmins';
 import ManageSubjects from './pages/Admin/ManageSubjects';
 import Announcements from './pages/Admin/Announcements';
+import Messages from './pages/Admin/Messages';
 
 // Tutor Pages
 import TutorDashboard from './pages/Tutor/TutorDashboard';
@@ -54,6 +55,7 @@ function App() {
         <Route path="/admin/school-config" element={<SchoolConfig />} />
         <Route path="/admin/subjects" element={<ManageSubjects />} />
         <Route path="/admin/announcements" element={<Announcements />} />
+        <Route path="/admin/messages"      element={<Messages />} />
       </Route>
       
       {/* Tutor Protected Routes*/}
