@@ -177,7 +177,7 @@ const ParentMessagesScreen = () => {
     setSending(true);
     try {
       const res = await messageService.sendMessage(selectedConv._id, text);
-      setMessages(prev => [...prev, res.message]);
+      setMessages(prev => prev.some(m => m._id === res.message._id) ? prev : [...prev, res.message]);
       setConversations(prev =>
         prev.map(c => c._id === selectedConv._id
           ? { ...c, lastMessage: text.slice(0, 120), lastMessageAt: new Date().toISOString() }

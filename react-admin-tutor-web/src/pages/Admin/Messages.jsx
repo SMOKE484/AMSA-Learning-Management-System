@@ -59,8 +59,11 @@ export default function Messages() {
     }
   };
 
-  // Listen for real-time conversation list updates
+  // Single stable socket listeners — registered once on mount, cleaned up on unmount
   useEffect(() => {
+    const handleMsg = (msg) => {
+      if (msgHandlerRef.current) msgHandlerRef.current(msg);
+    };
     const handleConvUpdate = (data) => {
       setConversations(prev =>
         prev.map(c => c._id === data.conversationId
@@ -69,19 +72,19 @@ export default function Messages() {
         )
       );
     };
+    socketService.onMessage(handleMsg);
     socketService.onConversationUpdated(handleConvUpdate);
-    return () => { socketService.off('conversation:updated', handleConvUpdate); };
+    return () => {
+      socketService.off('message:new', handleMsg);
+      socketService.off('conversation:updated', handleConvUpdate);
+    };
   }, []);
 
   useEffect(() => { loadConversations(); }, []);
 
   // Load messages when a conversation is selected
   const openConversation = async (conv) => {
-    // Leave previous room
-    if (selected) {
-      socketService.leaveConversation(selected._id);
-      if (msgHandlerRef.current) socketService.off('message:new', msgHandlerRef.current);
-    }
+    if (selected) socketService.leaveConversation(selected._id);
 
     setSelected(conv);
     setLoadingMsgs(true);
@@ -91,7 +94,6 @@ export default function Messages() {
       setMessages(prev => prev.some(m => m._id === msg._id) ? prev : [...prev, msg]);
     };
     socketService.joinConversation(conv._id);
-    socketService.onMessage(msgHandlerRef.current);
 
     try {
       const res = await api.get(`/messages/${conv._id}`);
@@ -108,13 +110,8 @@ export default function Messages() {
   };
 
   const closeConversation = () => {
-    if (selected) {
-      socketService.leaveConversation(selected._id);
-      if (msgHandlerRef.current) {
-        socketService.off('message:new', msgHandlerRef.current);
-        msgHandlerRef.current = null;
-      }
-    }
+    if (selected) socketService.leaveConversation(selected._id);
+    msgHandlerRef.current = null;
     setSelected(null);
   };
 
@@ -127,7 +124,7 @@ export default function Messages() {
     setSending(true);
     try {
       const res = await api.post(`/messages/${selected._id}`, { content: draft.trim() });
-      setMessages(prev => [...prev, res.data.message]);
+      setMessages(prev => prev.some(m => m._id === res.data.message._id) ? prev : [...prev, res.data.message]);
       setDraft('');
       setConversations(prev =>
         prev.map(c => c._id === selected._id

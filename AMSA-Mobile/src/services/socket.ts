@@ -36,7 +36,7 @@ class SocketService {
 
     this.ws.onopen = () => {
       // Send SIO CONNECT with JWT auth
-      this.ws!.send(`40${JSON.stringify({ auth: { token: this.token } })}`);
+      this.ws!.send(`40${JSON.stringify({ token: this.token })}`);
     };
 
     this.ws.onmessage = ({ data }: { data: string }) => {
