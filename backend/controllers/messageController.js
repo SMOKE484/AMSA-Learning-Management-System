@@ -5,18 +5,17 @@ import User from '../models/user.js';
 
 const expo = new Expo();
 
-const isParticipant = (conversation, userId) => {
-  return (
-    conversation.admin.toString()  === userId.toString() ||
-    conversation.parent.toString() === userId.toString()
-  );
+// Admins can access any conversation; parents only their own.
+const isParticipant = (conversation, userId, role) => {
+  if (role === 'admin') return true;
+  return conversation.parent.toString() === userId.toString();
 };
 
 // GET /api/messages/conversations
 export const getConversations = async (req, res) => {
   try {
     const query = req.role === 'admin'
-      ? { admin: req.userId }
+      ? {}
       : { parent: req.userId };
 
     const conversations = await Conversation.find(query)
@@ -64,7 +63,7 @@ export const getMessages = async (req, res) => {
   try {
     const conversation = await Conversation.findById(req.params.id);
     if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
-    if (!isParticipant(conversation, req.userId))
+    if (!isParticipant(conversation, req.userId, req.role))
       return res.status(403).json({ message: 'Access denied' });
 
     const messages = await Message.find({ conversation: req.params.id })
@@ -88,7 +87,7 @@ export const sendMessage = async (req, res) => {
       .populate('parent', 'name pushToken');
 
     if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
-    if (!isParticipant(conversation, req.userId))
+    if (!isParticipant(conversation, req.userId, req.role))
       return res.status(403).json({ message: 'Access denied' });
 
     const senderRole = req.role === 'admin' ? 'admin' : 'parent';
@@ -139,7 +138,7 @@ export const markRead = async (req, res) => {
   try {
     const conversation = await Conversation.findById(req.params.id);
     if (!conversation) return res.status(404).json({ message: 'Conversation not found' });
-    if (!isParticipant(conversation, req.userId))
+    if (!isParticipant(conversation, req.userId, req.role))
       return res.status(403).json({ message: 'Access denied' });
 
     const senderRole = req.role === 'admin' ? 'parent' : 'admin';
