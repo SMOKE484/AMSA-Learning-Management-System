@@ -451,10 +451,16 @@ const StudentDashboardScreen = () => {
               <Icon name="notifications-outline" size={22} color={BRAND.textPrimary} />
               {unreadCount > 0 && (
                 <View style={{
-                  position: 'absolute', top: 6, right: 6,
-                  width: 8, height: 8, borderRadius: 4,
+                  position: 'absolute', top: -4, right: -4,
+                  minWidth: 18, height: 18, borderRadius: 9,
                   backgroundColor: BRAND.red,
-                }} />
+                  justifyContent: 'center', alignItems: 'center',
+                  paddingHorizontal: 4,
+                }}>
+                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', lineHeight: 14 }}>
+                    {unreadCount > 99 ? '99+' : String(unreadCount)}
+                  </Text>
+                </View>
               )}
             </TouchableOpacity>
           </View>

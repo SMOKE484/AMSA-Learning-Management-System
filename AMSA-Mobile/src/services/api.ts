@@ -26,6 +26,7 @@ api.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    console.log(`[API] → ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, token ? '(token attached)' : '(NO TOKEN)');
     return config;
   },
   (error) => {

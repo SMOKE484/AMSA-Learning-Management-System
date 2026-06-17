@@ -23,12 +23,16 @@ export const saveProfilePicture = async (
   userId: string,
   tempUri: string,
 ): Promise<string> => {
+  console.log('[AvatarStorage] saveProfilePicture — userId:', userId, 'tempUri:', tempUri);
   const ext = tempUri.split('.').pop()?.split('?')[0] || 'jpg';
   const dir = FileSystem.documentDirectory + 'profile_pictures/';
+  console.log('[AvatarStorage] target dir:', dir);
   await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
   const dest = dir + userId + '.' + ext;
+  console.log('[AvatarStorage] copying to:', dest);
   await FileSystem.copyAsync({ from: tempUri, to: dest });
   await AsyncStorage.setItem('amsa_profile_picture_' + userId, dest);
+  console.log('[AvatarStorage] done — profile picture saved at:', dest);
   return dest;
 };
 

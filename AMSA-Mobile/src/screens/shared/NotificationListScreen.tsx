@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, ActivityIndicator,
+  RefreshControl, ActivityIndicator, Modal, ScrollView as ModalScroll, Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { GlassCard } from '../../components/GlassCard';
@@ -77,6 +77,7 @@ export default function NotificationListScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<AppNotification | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -98,6 +99,7 @@ export default function NotificationListScreen() {
   };
 
   const handleTap = async (item: AppNotification) => {
+    setSelectedNotification(item);
     if (!item.read) {
       try {
         await markNotificationAsRead(item._id);
@@ -146,6 +148,51 @@ export default function NotificationListScreen() {
           )}
         </View>
       </View>
+
+      {/* Full-message detail modal */}
+      <Modal
+        visible={selectedNotification !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedNotification(null)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', paddingHorizontal: 24 }}
+          onPress={() => setSelectedNotification(null)}
+        >
+          <Pressable onPress={() => {}}>
+            {selectedNotification && (() => {
+              const ic = typeIcon(selectedNotification.type);
+              return (
+                <View style={{ backgroundColor: colors.surface, borderRadius: 18, padding: 22, maxHeight: '80%' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+                    <View style={[s.iconWrap, { backgroundColor: ic.bg }]}>
+                      <Icon name={ic.name as any} size={20} color={ic.color} />
+                    </View>
+                    <Text style={{ flex: 1, fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginLeft: 10 }}>
+                      {selectedNotification.title}
+                    </Text>
+                  </View>
+                  <ModalScroll style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false}>
+                    <Text style={{ fontSize: 15, color: colors.textSecondary, lineHeight: 22 }}>
+                      {selectedNotification.message}
+                    </Text>
+                  </ModalScroll>
+                  <Text style={[s.itemTime, { marginTop: 14 }]}>
+                    {formatTime(selectedNotification.createdAt)}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setSelectedNotification(null)}
+                    style={{ marginTop: 18, paddingVertical: 11, borderRadius: 10, backgroundColor: BRAND.red, alignItems: 'center' }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })()}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* List */}
       <FlatList

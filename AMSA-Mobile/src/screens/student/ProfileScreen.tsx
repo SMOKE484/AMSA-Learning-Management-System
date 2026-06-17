@@ -168,8 +168,9 @@ const StudentProfileScreen = () => {
   const [loading, setLoading]             = useState(true);
   const [modalVisible, setModalVisible]   = useState(false);
   const [submitting, setSubmitting]       = useState(false);
-  const [pickerVisible, setPickerVisible] = useState(false);
-  const [profilePicUri, setProfilePicUri] = useState<string | null>(null);
+  const [pickerVisible, setPickerVisible]           = useState(false);
+  const [pendingPickerAction, setPendingPickerAction] = useState<'library' | 'camera' | null>(null);
+  const [profilePicUri, setProfilePicUri]             = useState<string | null>(null);
   const [passwordForm, setPasswordForm]   = useState({
     currentPassword: '',
     newPassword:     '',
@@ -184,12 +185,24 @@ const StudentProfileScreen = () => {
     }
   }, [user?.id]);
 
+  useEffect(() => {
+    console.log('[Picker] pickerVisible state changed →', pickerVisible);
+  }, [pickerVisible]);
+
   const loadProfileData = async () => {
     try {
+      console.log('[ProfileScreen] loadProfileData start — user from context:', JSON.stringify(user));
       const profileData = await studentService.getProfile();
+      console.log('[ProfileScreen] profile response:', JSON.stringify(profileData));
       setProfile(profileData.student);
-    } catch (err) {
-      console.error('Profile load error:', err);
+    } catch (err: any) {
+      console.error('[ProfileScreen] loadProfileData FAILED:', {
+        message: err?.message,
+        status: err?.response?.status,
+        responseData: err?.response?.data,
+        url: err?.config?.url,
+        method: err?.config?.method,
+      });
     } finally {
       setLoading(false);
     }
@@ -226,41 +239,102 @@ const StudentProfileScreen = () => {
     }
   };
 
-  const handleUploadPhoto = async () => {
-    setPickerVisible(false);
-    await new Promise(r => setTimeout(r, 350));
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow photo library access in Settings.'); return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0] && user?.id) {
-      const uri = await saveProfilePicture(user.id, result.assets[0].uri);
-      setProfilePicUri(uri);
+  // Permission is checked here (while modal is still animating away) so
+  // launchLibraryPicker / launchCameraPicker can fire immediately on onDismiss.
+  const launchLibraryPicker = async () => {
+    console.log('[Picker] launchLibraryPicker — START');
+    try {
+      console.log('[Picker] calling launchImageLibraryAsync…');
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      console.log('[Picker] launchImageLibraryAsync returned — canceled:', result.canceled, '| assets:', result.assets?.length);
+      if (!result.canceled && result.assets[0] && user?.id) {
+        console.log('[Picker] saving asset uri:', result.assets[0].uri);
+        const uri = await saveProfilePicture(user.id, result.assets[0].uri);
+        console.log('[Picker] saved to:', uri);
+        setProfilePicUri(uri);
+      }
+    } catch (err: any) {
+      console.error('[Picker] launchLibraryPicker ERROR:', err?.message, err);
+      Alert.alert('Error', 'Could not open photo library: ' + (err?.message || 'Unknown error'));
     }
   };
 
-  const handleTakePhoto = async () => {
-    setPickerVisible(false);
-    await new Promise(r => setTimeout(r, 350));
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+  const launchCameraPicker = async () => {
+    console.log('[Picker] launchCameraPicker — START');
+    try {
+      console.log('[Picker] calling launchCameraAsync…');
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      console.log('[Picker] launchCameraAsync returned — canceled:', result.canceled, '| assets:', result.assets?.length);
+      if (!result.canceled && result.assets[0] && user?.id) {
+        console.log('[Picker] saving asset uri:', result.assets[0].uri);
+        const uri = await saveProfilePicture(user.id, result.assets[0].uri);
+        console.log('[Picker] saved to:', uri);
+        setProfilePicUri(uri);
+      }
+    } catch (err: any) {
+      console.error('[Picker] launchCameraPicker ERROR:', err?.message, err);
+      Alert.alert('Error', 'Could not open camera: ' + (err?.message || 'Unknown error'));
+    }
+  };
+
+  // iOS: called by Modal's onDismiss — fires only after the slide-out animation fully completes.
+  const handlePickerModalDismiss = () => {
+    console.log('[Picker] handlePickerModalDismiss — pendingPickerAction:', pendingPickerAction);
+    if (!pendingPickerAction) return;
+    const action = pendingPickerAction;
+    setPendingPickerAction(null);
+    if (action === 'library') launchLibraryPicker();
+    else launchCameraPicker();
+  };
+
+  // Android fallback — onDismiss is iOS-only.
+  useEffect(() => {
+    if (Platform.OS === 'ios') return;
+    if (!pickerVisible && pendingPickerAction) {
+      console.log('[Picker] Android: pickerVisible=false + pendingPickerAction:', pendingPickerAction, '— scheduling launch');
+      const action = pendingPickerAction;
+      setPendingPickerAction(null);
+      const t = setTimeout(() => {
+        if (action === 'library') launchLibraryPicker();
+        else launchCameraPicker();
+      }, 500);
+      return () => clearTimeout(t);
+    }
+  }, [pickerVisible, pendingPickerAction]);
+
+  const handleUploadPhoto = async () => {
+    console.log('[Picker] handleUploadPhoto pressed — checking permission…');
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    console.log('[Picker] library permission status:', status);
     if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow camera access in Settings.'); return;
+      Alert.alert('Permission Required', 'Please allow photo library access in Settings.');
+      return;
     }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0] && user?.id) {
-      const uri = await saveProfilePicture(user.id, result.assets[0].uri);
-      setProfilePicUri(uri);
+    console.log('[Picker] permission ok — setting pending: library');
+    setPendingPickerAction('library');
+    setPickerVisible(false);
+  };
+
+  const handleTakePhoto = async () => {
+    console.log('[Picker] handleTakePhoto pressed — checking permission…');
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    console.log('[Picker] camera permission status:', status);
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please allow camera access in Settings.');
+      return;
     }
+    console.log('[Picker] permission ok — setting pending: camera');
+    setPendingPickerAction('camera');
+    setPickerVisible(false);
   };
 
   const displayName  = user?.name  || profile?.user?.name  || '';
@@ -297,7 +371,7 @@ const StudentProfileScreen = () => {
         {/* ── AVATAR CARD ───────────────────────────────────────────────── */}
         <GlassCard style={s.avatarCard}>
           <View style={s.avatarInner}>
-            <TouchableOpacity style={s.avatarRing} onPress={() => setPickerVisible(true)} activeOpacity={0.8}>
+            <TouchableOpacity style={s.avatarRing} onPress={() => { console.log('[Picker] avatar tapped — opening picker modal'); setPickerVisible(true); }} activeOpacity={0.8}>
               <Image
                 source={profilePicUri
                   ? { uri: profilePicUri }
@@ -393,7 +467,9 @@ const StudentProfileScreen = () => {
         animationType="slide"
         transparent
         visible={pickerVisible}
-        onRequestClose={() => setPickerVisible(false)}
+        onRequestClose={() => { console.log('[Picker] Modal onRequestClose'); setPickerVisible(false); }}
+        onDismiss={() => { console.log('[Picker] Modal onDismiss (iOS — animation fully complete)'); handlePickerModalDismiss(); }}
+        onShow={() => console.log('[Picker] Modal onShow')}
       >
         <View style={s.modalOverlay}>
           <View style={s.pickerCard}>
