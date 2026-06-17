@@ -2,6 +2,7 @@ import { Expo } from 'expo-server-sdk';
 import Conversation from '../models/conversation.js';
 import Message from '../models/message.js';
 import User from '../models/user.js';
+import { getIo } from '../socket.js';
 
 const expo = new Expo();
 
@@ -103,11 +104,11 @@ export const sendMessage = async (req, res) => {
 
     // Update conversation preview and unread counter
     const unreadField = senderRole === 'admin' ? 'unreadByParent' : 'unreadByAdmin';
-    await Conversation.findByIdAndUpdate(conversation._id, {
-      lastMessage:    content.trim().slice(0, 120),
-      lastMessageAt:  new Date(),
-      $inc: { [unreadField]: 1 },
-    });
+    const updatedConv = await Conversation.findByIdAndUpdate(
+      conversation._id,
+      { lastMessage: content.trim().slice(0, 120), lastMessageAt: new Date(), $inc: { [unreadField]: 1 } },
+      { new: true }
+    );
 
     // Push notification to the other participant
     const recipient = senderRole === 'admin' ? conversation.parent : conversation.admin;
@@ -129,6 +130,22 @@ export const sendMessage = async (req, res) => {
     }
 
     await message.populate('sender', 'name role');
+
+    // Real-time delivery via Socket.IO
+    const io = getIo();
+    if (io) {
+      io.to(`conv:${conversation._id}`).emit('message:new', message);
+      const convUpdate = {
+        conversationId:  conversation._id,
+        lastMessage:     updatedConv.lastMessage,
+        lastMessageAt:   updatedConv.lastMessageAt,
+        unreadByAdmin:   updatedConv.unreadByAdmin,
+        unreadByParent:  updatedConv.unreadByParent,
+      };
+      io.to(`user:${conversation.admin._id}`).emit('conversation:updated', convUpdate);
+      io.to(`user:${conversation.parent._id}`).emit('conversation:updated', convUpdate);
+    }
+
     res.status(201).json({ message });
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -10,6 +10,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import api from '../../services/apiService';
 import { useSnackbar } from '../../context/SnackbarContext';
+import { socketService } from '../../services/socket';
 
 const fmt = (iso) => {
   if (!iso) return '';
@@ -43,6 +44,7 @@ export default function Messages() {
   const [startingConv, setStartingConv]     = useState(false);
 
   const bottomRef = useRef(null);
+  const msgHandlerRef = useRef(null);
   const adminId = JSON.parse(localStorage.getItem('user') || '{}').id;
 
   // Load conversations
@@ -57,13 +59,40 @@ export default function Messages() {
     }
   };
 
+  // Listen for real-time conversation list updates
+  useEffect(() => {
+    const handleConvUpdate = (data) => {
+      setConversations(prev =>
+        prev.map(c => c._id === data.conversationId
+          ? { ...c, lastMessage: data.lastMessage, lastMessageAt: data.lastMessageAt, unreadByAdmin: data.unreadByAdmin }
+          : c
+        )
+      );
+    };
+    socketService.onConversationUpdated(handleConvUpdate);
+    return () => { socketService.off('conversation:updated', handleConvUpdate); };
+  }, []);
+
   useEffect(() => { loadConversations(); }, []);
 
   // Load messages when a conversation is selected
   const openConversation = async (conv) => {
+    // Leave previous room
+    if (selected) {
+      socketService.leaveConversation(selected._id);
+      if (msgHandlerRef.current) socketService.off('message:new', msgHandlerRef.current);
+    }
+
     setSelected(conv);
     setLoadingMsgs(true);
     setMessages([]);
+
+    msgHandlerRef.current = (msg) => {
+      setMessages(prev => prev.some(m => m._id === msg._id) ? prev : [...prev, msg]);
+    };
+    socketService.joinConversation(conv._id);
+    socketService.onMessage(msgHandlerRef.current);
+
     try {
       const res = await api.get(`/messages/${conv._id}`);
       setMessages(res.data.messages || []);
@@ -76,6 +105,17 @@ export default function Messages() {
     } finally {
       setLoadingMsgs(false);
     }
+  };
+
+  const closeConversation = () => {
+    if (selected) {
+      socketService.leaveConversation(selected._id);
+      if (msgHandlerRef.current) {
+        socketService.off('message:new', msgHandlerRef.current);
+        msgHandlerRef.current = null;
+      }
+    }
+    setSelected(null);
   };
 
   useEffect(() => {
@@ -233,7 +273,7 @@ export default function Messages() {
 
           {/* Thread header */}
           <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: '#fff' }}>
-            <IconButton size="small" onClick={() => setSelected(null)} sx={{ mr: 0.5 }}>
+            <IconButton size="small" onClick={closeConversation} sx={{ mr: 0.5 }}>
               <ArrowBackIcon fontSize="small" />
             </IconButton>
             <Avatar sx={{ bgcolor: '#007B8C', width: 36, height: 36, fontSize: 14 }}>

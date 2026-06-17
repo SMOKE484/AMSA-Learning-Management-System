@@ -299,7 +299,7 @@ const ParentProfileScreen = () => {
         <GlassCard style={s.sectionCard}>
           <MenuItem icon="people-outline"     label="Manage Children"     iconBg={BRAND.tealDim}   iconColor={BRAND.teal}   onPress={() => navigation.navigate('Children' as never)} divider />
           <MenuItem icon="school-outline"     label="Academic Reports"    iconBg={BRAND.redDim}    iconColor={BRAND.red}    onPress={() => navigation.navigate('Marks' as never)} divider />
-          <MenuItem icon="chatbubble-outline" label="Parent-Teacher Chat" iconBg={BRAND.yellowDim} iconColor={BRAND.yellow} onPress={() => handleComingSoon('Parent-Teacher Chat')} divider />
+          <MenuItem icon="chatbubble-outline" label="Parent-Teacher Chat" iconBg={BRAND.yellowDim} iconColor={BRAND.yellow} onPress={() => navigation.navigate('Messages' as never)} divider />
           <MenuItem icon="calendar-outline"   label="School Calendar"     iconBg={BRAND.blueDim}   iconColor={BRAND.blue}   onPress={() => handleComingSoon('School Calendar')} />
         </GlassCard>
 

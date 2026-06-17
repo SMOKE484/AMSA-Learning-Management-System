@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import Sidebar from './Sidebar';
 import { useAuth } from '../../hooks/useAuth';
+import { socketService } from '../../services/socket';
 import logo from '../../assets/images/AMSA_Logo.png';
 import { getAvatarUrl, getStoredAvatarSeed, saveAvatarSeed, AVATAR_SEEDS } from '../../utils/avatarUtils';
 
@@ -16,6 +17,12 @@ const Layout = ({ children }) => {
   useEffect(() => {
     if (user?.id) setAvatarSeed(getStoredAvatarSeed(user.id));
   }, [user?.id]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) socketService.connect(token);
+    return () => { socketService.disconnect(); };
+  }, []);
 
   const handlePickAvatar = (seed) => {
     if (user?.id) saveAvatarSeed(user.id, seed);

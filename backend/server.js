@@ -1,4 +1,7 @@
 import express from "express";
+import http from "node:http";
+import { Server as SocketServer } from "socket.io";
+import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -9,31 +12,65 @@ import adminRoutes from "./routes/adminRoutes.js";
 import studentRoutes from "./routes/studentRoutes.js";
 import tutorRoutes from "./routes/tutorRoutes.js";
 import parentRoutes from "./routes/parentRoutes.js";
-import academicRoutes from "./routes/academicRoutes.js"; 
+import academicRoutes from "./routes/academicRoutes.js";
 import scheduleRoutes from "./routes/scheduleRoutes.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
 import timetableRoutes from "./routes/timetableRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
+import { setIo } from "./socket.js";
 
 dotenv.config();
 
+const CORS_ORIGINS = [
+  'https://amsa-learning-management-system.vercel.app',
+  'https://amsa-learning-management-system-cxwxt73t0.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+];
+
 const app = express();
+const httpServer = http.createServer(app);
 app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(cors({
-  origin: [
-    'https://amsa-learning-management-system.vercel.app',
-    'https://amsa-learning-management-system-cxwxt73t0.vercel.app',
-    'http://localhost:3000',                               
-    'http://localhost:5173',                               
-  ],
+  origin: CORS_ORIGINS,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  credentials: true, 
+  credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 app.use(express.json());
+
+// ── Socket.IO ────────────────────────────────────────────────────────────────
+const io = new SocketServer(httpServer, {
+  cors: { origin: CORS_ORIGINS, credentials: true },
+});
+setIo(io);
+
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) return next(new Error('Unauthorized'));
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.userId?.toString();
+    next();
+  } catch {
+    next(new Error('Unauthorized'));
+  }
+});
+
+io.on('connection', (socket) => {
+  socket.join(`user:${socket.userId}`);
+
+  socket.on('join', (conversationId) => {
+    socket.join(`conv:${conversationId}`);
+  });
+
+  socket.on('leave', (conversationId) => {
+    socket.leave(`conv:${conversationId}`);
+  });
+});
 
 mongoose
   .connect(process.env.MONGO_URI)
@@ -82,8 +119,8 @@ mongoose
     }
 
     const PORT = process.env.PORT || 5000;
-    
-    app.listen(PORT, '0.0.0.0', () => {
+
+    httpServer.listen(PORT, '0.0.0.0', () => {
       console.log(`Server listening on port ${PORT}`);
       console.log(`Local: http://localhost:${PORT}`);
       console.log(`Network: http://192.168.110.97:${PORT}`);

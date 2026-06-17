@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { messageService, Conversation, Message } from '../../services/messages';
+import { socketService } from '../../services/socket';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { BrandPalette } from '../../components/theme';
@@ -97,6 +98,8 @@ const ParentMessagesScreen = () => {
   const [sending, setSending]                 = useState(false);
 
   const listRef = useRef<FlatList>(null);
+  const msgHandlerRef = useRef<((msg: Message) => void) | null>(null);
+  const convHandlerRef = useRef<((data: any) => void) | null>(null);
   const BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_OFFSET + 16;
 
   // ── Load conversations ────────────────────────────────────────────────
@@ -126,6 +129,21 @@ const ParentMessagesScreen = () => {
     setView('thread');
     setLoadingThread(true);
     setMessages([]);
+    msgHandlerRef.current = (msg: Message) => {
+      setMessages(prev => prev.some(m => m._id === msg._id) ? prev : [...prev, msg]);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    };
+    convHandlerRef.current = (data: any) => {
+      setConversations(prev =>
+        prev.map(c => c._id === data.conversationId
+          ? { ...c, lastMessage: data.lastMessage, lastMessageAt: data.lastMessageAt, unreadByParent: data.unreadByParent }
+          : c
+        )
+      );
+    };
+    socketService.joinConversation(conv._id);
+    socketService.onMessage(msgHandlerRef.current);
+    socketService.onConversationUpdated(convHandlerRef.current);
     try {
       const res = await messageService.getMessages(conv._id);
       setMessages(res.messages || []);
@@ -138,6 +156,17 @@ const ParentMessagesScreen = () => {
     } finally {
       setLoadingThread(false);
     }
+  };
+
+  const closeThread = () => {
+    if (selectedConv) {
+      socketService.leaveConversation(selectedConv._id);
+      if (msgHandlerRef.current)  socketService.off('message:new',         msgHandlerRef.current);
+      if (convHandlerRef.current) socketService.off('conversation:updated', convHandlerRef.current);
+      msgHandlerRef.current  = null;
+      convHandlerRef.current = null;
+    }
+    setView('list');
   };
 
   // ── Send reply ───────────────────────────────────────────────────────
@@ -263,7 +292,7 @@ const ParentMessagesScreen = () => {
           ))}
         </View>
         <View style={s.headerContent}>
-          <TouchableOpacity style={s.backBtn} onPress={() => setView('list')}>
+          <TouchableOpacity style={s.backBtn} onPress={closeThread}>
             <Icon name="arrow-back" size={18} color={BRAND.textPrimary} />
           </TouchableOpacity>
           <View style={s.convAvatar}>

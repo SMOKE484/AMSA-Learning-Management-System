@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../services/auth';
 import { registerUnauthenticatedHandler } from '../services/api';
 import { registerForPushNotificationsAsync } from '../utils/notifications';
+import { socketService } from '../services/socket';
 import { User } from '../types';
 
 interface AuthContextType {
@@ -46,6 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setToken(storedToken);
         console.log('✅ User authenticated:', currentUser);
         registerForPushNotificationsAsync().catch(() => {});
+        if (storedToken) socketService.connect(storedToken);
       } else {
         console.log('❌ No user authenticated');
       }
@@ -64,6 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(data.token);
       console.log('🎉 Login successful:', data.user);
       registerForPushNotificationsAsync().catch(() => {});
+      socketService.connect(data.token);
     } catch (error: any) {
       console.error('💥 Login context error:', error);
 
@@ -86,6 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       await authService.logout();
+      socketService.disconnect();
       setUser(null);
       setToken(null);
     } catch (error) {

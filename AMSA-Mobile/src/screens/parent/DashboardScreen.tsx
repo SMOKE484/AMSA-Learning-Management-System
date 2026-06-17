@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { parentService } from '../../services/parent';
 import { getNotifications } from '../../services/notifications';
 import { messageService } from '../../services/messages';
+import { socketService } from '../../services/socket';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import { ParentStackParamList } from '../../types/navigation';
 import { registerForPushNotificationsAsync } from '../../utils/notifications';
@@ -137,15 +138,24 @@ const ParentDashboardScreen = () => {
   useEffect(() => {
     loadDashboardData();
     getNotifications(1, true).then(r => setUnreadCount(r.unreadCount)).catch(() => {});
-    messageService.getConversations().then(({ conversations }) => {
-      setUnreadMsgCount(conversations.reduce((sum, c) => sum + (c.unreadByParent || 0), 0));
-    }).catch(() => {});
+
+    const refreshMsgBadge = () => {
+      messageService.getConversations()
+        .then(({ conversations }) => setUnreadMsgCount(conversations.reduce((sum, c) => sum + (c.unreadByParent || 0), 0)))
+        .catch(() => {});
+    };
+    refreshMsgBadge();
+    socketService.onConversationUpdated(refreshMsgBadge);
+
     registerForPushNotificationsAsync().catch(console.error);
     notificationListener.current = Notifications.addNotificationReceivedListener(() => {
       loadDashboardData();
       getNotifications(1, true).then(r => setUnreadCount(r.unreadCount)).catch(() => {});
     });
-    return () => { notificationListener.current?.remove(); };
+    return () => {
+      socketService.off('conversation:updated', refreshMsgBadge);
+      notificationListener.current?.remove();
+    };
   }, []);
 
   const onRefresh = async () => {

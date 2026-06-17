@@ -6,6 +6,7 @@ import {
 import { useAuth } from '../../hooks/useAuth'; // Adjusted path based on your structure
 import { Link, useLocation } from 'react-router-dom';
 import api from '../../services/apiService';
+import { socketService } from '../../services/socket';
 
 // Icons
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -29,10 +30,15 @@ const Sidebar = () => {
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
 
   useEffect(() => {
-    api.get('/messages').then(res => {
-      const total = (res.data.conversations || []).reduce((sum, c) => sum + (c.unreadByAdmin || 0), 0);
-      setUnreadMsgCount(total);
-    }).catch(() => {});
+    const fetchUnread = () => {
+      api.get('/messages').then(res => {
+        const total = (res.data.conversations || []).reduce((sum, c) => sum + (c.unreadByAdmin || 0), 0);
+        setUnreadMsgCount(total);
+      }).catch(() => {});
+    };
+    fetchUnread();
+    socketService.onConversationUpdated(fetchUnread);
+    return () => { socketService.off('conversation:updated', fetchUnread); };
   }, []);
 
   // Admin Links
