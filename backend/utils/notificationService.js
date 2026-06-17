@@ -407,7 +407,44 @@ export const sendBulkNotifications = async (notifications) => {
 };
 
 /**
- * 8. Cleanup Old Notifications
+ * 9. Send Weekly Activity Report to a single parent
+ */
+export const sendWeeklyReport = async (parent, summaryMessage, weekStart) => {
+  try {
+    const dateLabel = weekStart.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+    const title = `Weekly Report — w/c ${dateLabel}`;
+
+    await Notification.create({
+      recipient:     parent._id,
+      recipientType: 'parent',
+      title,
+      message:       summaryMessage,
+      type:          'weekly_report',
+      priority:      'normal',
+      data:          { screen: 'Attendance' },
+    });
+
+    if (parent.pushToken && Expo.isExpoPushToken(parent.pushToken)) {
+      const chunks = expo.chunkPushNotifications([{
+        to:    parent.pushToken,
+        sound: 'default',
+        title,
+        body:  "Your children's weekly activity report is ready. Tap to view.",
+        data:  { screen: 'Attendance' },
+      }]);
+      for (const chunk of chunks) {
+        await expo.sendPushNotificationsAsync(chunk);
+      }
+    }
+
+    console.log(`📊 Weekly report sent to parent ${parent._id}`);
+  } catch (error) {
+    console.error('❌ Weekly Report Notification Error:', error);
+  }
+};
+
+/**
+ * 10. Cleanup Old Notifications
  */
 export const cleanupExpiredNotifications = async () => {
   try {
@@ -445,6 +482,7 @@ export const NotificationService = {
   sendAbsentAlert,
   sendManualAttendanceNotification,
   sendBulkNotifications,
+  sendWeeklyReport,
   cleanupExpiredNotifications,
   processPendingNotifications
 };

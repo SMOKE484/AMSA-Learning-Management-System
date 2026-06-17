@@ -21,7 +21,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ["class_reminder", "check_in_available", "announcement", "attendance_alert", "general"],
+    enum: ["class_reminder", "check_in_available", "announcement", "attendance_alert", "general", "weekly_report", "direct_message"],
     default: "general"
   },
   relatedClass: {

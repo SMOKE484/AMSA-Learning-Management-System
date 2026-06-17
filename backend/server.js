@@ -14,6 +14,7 @@ import scheduleRoutes from "./routes/scheduleRoutes.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
 import timetableRoutes from "./routes/timetableRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import messageRoutes from "./routes/messageRoutes.js";
 
 dotenv.config();
 
@@ -70,10 +71,12 @@ mongoose
     try {
       const { AttendanceJobs } = await import('./jobs/attendanceJobs.js');
       const { NotificationJobs } = await import('./jobs/notificationJobs.js');
-      
+      const { WeeklyReportJob } = await import('./jobs/weeklyReportJob.js');
+
       AttendanceJobs.start();
       NotificationJobs.start();
-      console.log('Cron jobs started for attendance and notifications');
+      WeeklyReportJob.start();
+      console.log('Cron jobs started for attendance, notifications, and weekly reports');
     } catch (error) {
       console.log('Failed to start cron jobs:', error.message);
     }
@@ -118,6 +121,7 @@ app.use("/api/schedules", scheduleRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/timetable", timetableRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/messages", messageRoutes);
 
 app.get("/", (req, res) => {
   res.send("Academic Management System API is running...");
