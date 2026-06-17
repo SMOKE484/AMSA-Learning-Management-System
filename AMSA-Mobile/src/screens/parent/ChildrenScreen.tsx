@@ -136,7 +136,7 @@ const ParentChildrenScreen = () => {
           const childActions = [
             { icon: 'school-outline',    label: 'View Marks', color: BRAND.teal,   onPress: () => (navigation as any).navigate('Marks', { childId: child._id }) },
             { icon: 'calendar-outline',  label: 'Attendance', color: BRAND.red,    onPress: () => Alert.alert('Coming Soon', 'Attendance details will be available in a future update.') },
-            { icon: 'chatbubble-outline', label: 'Message',   color: BRAND.yellow, onPress: () => Alert.alert('Coming Soon', 'Messaging will be available in a future update.') },
+            { icon: 'chatbubble-outline', label: 'Message',   color: BRAND.yellow, onPress: () => (navigation as any).navigate('Messages') },
           ];
           return (
             <GlassCard key={child._id} accentColor={BRAND.teal} style={s.childCard}>

@@ -38,6 +38,8 @@ import StudentAttendanceScreen from './src/screens/student/AttendanceScreen';
 import ParentDashboardScreen from './src/screens/parent/DashboardScreen';
 import ParentChildrenScreen from './src/screens/parent/ChildrenScreen';
 import ParentMarksScreen from './src/screens/parent/MarksScreen';
+import ParentAttendanceScreen from './src/screens/parent/AttendanceScreen';
+import ParentMessagesScreen from './src/screens/parent/MessagesScreen';
 import ParentProfileScreen from './src/screens/parent/ProfileScreen';
 
 SplashScreen.preventAutoHideAsync();
@@ -196,20 +198,22 @@ const ParentTabNavigator: React.FC = () => {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: keyof typeof iconsMap;
           switch (route.name) {
-            case 'Dashboard': iconName = focused ? 'home'   : 'home-outline';   break;
-            case 'Children':  iconName = focused ? 'people' : 'people-outline'; break;
-            case 'Marks':     iconName = focused ? 'school' : 'school-outline'; break;
-            case 'Profile':   iconName = focused ? 'person' : 'person-outline'; break;
-            default:          iconName = 'help-circle';
+            case 'Dashboard':  iconName = focused ? 'home'     : 'home-outline';     break;
+            case 'Children':   iconName = focused ? 'people'   : 'people-outline';   break;
+            case 'Marks':      iconName = focused ? 'school'   : 'school-outline';   break;
+            case 'Attendance': iconName = focused ? 'calendar' : 'calendar-outline'; break;
+            case 'Profile':    iconName = focused ? 'person'   : 'person-outline';   break;
+            default:           iconName = 'help-circle';
           }
           return <Icon name={iconName} size={size} color={color} />;
         },
       })}
     >
-      <ParentTab.Screen name="Dashboard" component={ParentDashboardScreen} options={{ title: 'Home' }} />
-      <ParentTab.Screen name="Children"  component={ParentChildrenScreen}  options={{ title: 'Children' }} />
-      <ParentTab.Screen name="Marks"     component={ParentMarksScreen}     options={{ title: 'Marks' }} />
-      <ParentTab.Screen name="Profile"   component={ParentProfileScreen}   options={{ title: 'Profile' }} />
+      <ParentTab.Screen name="Dashboard"  component={ParentDashboardScreen}  options={{ title: 'Home' }} />
+      <ParentTab.Screen name="Children"  component={ParentChildrenScreen}   options={{ title: 'Children' }} />
+      <ParentTab.Screen name="Marks"     component={ParentMarksScreen}      options={{ title: 'Marks' }} />
+      <ParentTab.Screen name="Attendance" component={ParentAttendanceScreen} options={{ title: 'Attend' }} />
+      <ParentTab.Screen name="Profile"   component={ParentProfileScreen}    options={{ title: 'Profile' }} />
     </ParentTab.Navigator>
   );
 };
@@ -242,6 +246,11 @@ const ParentStackNavigator: React.FC = () => {
       <Stack.Screen
         name="NotificationList"
         component={NotificationListScreen}
+        options={{ headerShown: false, presentation: 'card' }}
+      />
+      <Stack.Screen
+        name="Messages"
+        component={ParentMessagesScreen}
         options={{ headerShown: false, presentation: 'card' }}
       />
     </Stack.Navigator>
@@ -369,6 +378,8 @@ const Navigation: React.FC = () => {
           navigationRef.navigate('ParentApp', { screen: 'ParentTabs', params: { screen: 'Dashboard' } });
         else if (data.screen === 'Notifications')
           navigationRef.navigate('ParentApp', { screen: 'NotificationList' });
+        else if (data.screen === 'Messages')
+          navigationRef.navigate('ParentApp', { screen: 'Messages' });
       }
     });
 

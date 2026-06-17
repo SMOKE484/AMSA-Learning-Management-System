@@ -152,8 +152,8 @@ const ParentDashboardScreen = () => {
   const quickActions = [
     { icon: 'people',        title: 'My Children', color: BRAND.teal,   dim: BRAND.tealDim,   onPress: () => navigation.navigate('Children' as never) },
     { icon: 'school',        title: 'View Marks',  color: BRAND.red,    dim: BRAND.redDim,    onPress: () => navigation.navigate('Marks' as never) },
-    { icon: 'notifications', title: 'Alerts',      color: BRAND.yellow, dim: BRAND.yellowDim, onPress: () => Alert.alert('Coming Soon', 'Alerts will be available in a future update.') },
-    { icon: 'chatbubble',    title: 'Messages',    color: BRAND.blue,   dim: BRAND.blueDim,   onPress: () => Alert.alert('Coming Soon', 'Messaging will be available in a future update.') },
+    { icon: 'notifications', title: 'Alerts',      color: BRAND.yellow, dim: BRAND.yellowDim, onPress: () => navigation.navigate('NotificationList') },
+    { icon: 'chatbubble',    title: 'Messages',    color: BRAND.blue,   dim: BRAND.blueDim,   onPress: () => navigation.navigate('Messages' as never) },
   ];
 
   if (loading) {

@@ -30,6 +30,23 @@ export interface ChildMark {
   createdAt: string;
 }
 
+export interface ChildAttendanceRecord {
+  _id: string;
+  student: {
+    _id: string;
+    user: { name: string };
+  };
+  class: {
+    subject: string;
+    scheduledDate: string;
+    grade: string;
+  } | null;
+  status: 'present' | 'absent' | 'late' | 'excused' | 'left_early';
+  checkIn?: { time: string };
+  notes?: string;
+  createdAt: string;
+}
+
 export const parentService = {
   async getChildren(): Promise<{ children: Child[] }> {
     const response = await api.get('/parents/me/children');
@@ -48,6 +65,11 @@ export const parentService = {
 
   async getChildrenAttendance(): Promise<{ rate: number; total: number; present: number }> {
     const response = await api.get('/parents/me/attendance');
+    return response.data;
+  },
+
+  async getChildrenAttendanceRecords(): Promise<{ records: ChildAttendanceRecord[] }> {
+    const response = await api.get('/parents/me/attendance/records');
     return response.data;
   },
 };

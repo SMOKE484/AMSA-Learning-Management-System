@@ -4,7 +4,7 @@ export interface AppNotification {
   _id: string;
   title: string;
   message: string;
-  type: 'class_reminder' | 'check_in_available' | 'announcement' | 'attendance_alert' | 'general';
+  type: 'class_reminder' | 'check_in_available' | 'announcement' | 'attendance_alert' | 'general' | 'weekly_report';
   read: boolean;
   readAt?: string;
   priority: 'low' | 'normal' | 'high';

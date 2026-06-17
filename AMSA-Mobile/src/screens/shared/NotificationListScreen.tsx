@@ -64,6 +64,7 @@ const typeIcon = (type: AppNotification['type']): { name: string; color: string;
     case 'class_reminder':  return { name: 'calendar',            color: BRAND.blue,   bg: BRAND.blueDim   };
     case 'check_in_available': return { name: 'location',         color: BRAND.teal,   bg: BRAND.tealDim   };
     case 'attendance_alert':return { name: 'alert-circle',        color: BRAND.red,    bg: BRAND.redDim    };
+    case 'weekly_report':   return { name: 'bar-chart',           color: BRAND.yellow, bg: BRAND.yellowDim };
     default:                return { name: 'notifications',       color: BRAND.teal,   bg: BRAND.tealDim   };
   }
 };

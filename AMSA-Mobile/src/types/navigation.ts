@@ -24,9 +24,11 @@ export type ParentStackParamList = {
   Dashboard: undefined;
   Children: undefined;
   Marks: undefined;
+  Attendance: undefined;
   Profile: undefined;
   NotificationSettings: undefined;
   NotificationList: undefined;
+  Messages: undefined;
 };
 
 declare global {
