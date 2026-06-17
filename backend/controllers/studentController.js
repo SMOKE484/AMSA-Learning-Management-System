@@ -6,14 +6,24 @@ import { invalidateStudentCache } from "../middleware/cacheMiddleware.js";
 // Get student profile
 export const getMyProfile = async (req, res) => {
   try {
+    console.log('[getMyProfile] req.userId:', req.userId, '| req.role:', req.role);
+
     const student = await Student.findOne({ user: req.userId }).populate(
       "user",
       "name email"
     );
+
+    console.log('[getMyProfile] student lookup result:', student
+      ? { _id: student._id, grade: student.grade, user: student.user?._id }
+      : 'NOT FOUND — no Student record for this userId'
+    );
+
     if (!student) return res.status(404).json({ message: "Student not found" });
 
+    console.log('[getMyProfile] returning student profile for:', student.user?.email);
     res.json({ student });
   } catch (error) {
+    console.error('[getMyProfile] error:', error.message, error.stack);
     res.status(500).json({ message: error.message });
   }
 };

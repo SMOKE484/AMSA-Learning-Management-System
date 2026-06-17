@@ -70,7 +70,9 @@ export const authenticate = async (req, res, next) => {
       const student = await Student.findOne({ user: user._id });
       if (student) {
         req.studentId = student._id;
+        console.log('[Auth] Student record found:', student._id);
       } else {
+        console.warn('[Auth] WARNING — no Student record found for userId:', user._id, '| email:', user.email);
       }
     } else if (user.role === "admin") {
     }

@@ -4,6 +4,7 @@ import {
   getMyChildren,
   getMyChildrenMarks,
   getMyChildrenAttendance,
+  getMyChildrenAttendanceRecords,
 } from "../controllers/parentController.js";
 import { authenticate, authorize } from "../middleware/authMiddleware.js";
 import { cache } from "../middleware/cacheMiddleware.js";
@@ -18,5 +19,6 @@ router.get("/me", cache(300), getMyProfile);
 router.get("/me/children", cache(300), getMyChildren);
 router.get("/me/marks", cache(300), getMyChildrenMarks);
 router.get("/me/attendance", cache(300), getMyChildrenAttendance);
+router.get("/me/attendance/records", cache(60), getMyChildrenAttendanceRecords);
 
 export default router;

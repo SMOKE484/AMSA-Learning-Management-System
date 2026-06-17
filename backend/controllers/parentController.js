@@ -49,6 +49,24 @@ export const getMyChildrenAttendance = async (req, res) => {
   }
 };
 
+// Get detailed attendance records for all linked children
+export const getMyChildrenAttendanceRecords = async (req, res) => {
+  try {
+    const children = await Student.find({ parents: req.userId }).select('_id');
+    if (!children.length) return res.status(200).json({ records: [] });
+
+    const childrenIds = children.map(c => c._id);
+    const records = await Attendance.find({ student: { $in: childrenIds } })
+      .populate({ path: 'student', populate: { path: 'user', select: 'name' } })
+      .populate({ path: 'class', select: 'subject scheduledDate grade' })
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ records });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Get all marks for all linked children
 export const getMyChildrenMarks = async (req, res) => {
   try {
