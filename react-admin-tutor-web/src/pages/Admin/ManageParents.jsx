@@ -4,10 +4,11 @@ import {
   Box, Typography, TextField, Button, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, CircularProgress,
   Grid, FormControl, InputLabel, Select, MenuItem, Chip, OutlinedInput,
-  Dialog, DialogTitle, DialogContent, DialogActions, IconButton
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, InputAdornment
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import SearchIcon from '@mui/icons-material/Search';
 import { format } from 'date-fns';
 import api from '../../services/apiService';
 import { useSnackbar } from '../../context/SnackbarContext';
@@ -36,6 +37,7 @@ const ManageParents = () => {
   const [editFormData, setEditFormData] = useState({ name: '', email: '' });
 
   const { showSnackbar } = useSnackbar();
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Fetch parents and students
   const fetchData = async () => {
@@ -196,6 +198,11 @@ const ManageParents = () => {
     ).length;
   };
 
+  const filteredParents = parents.filter(p => {
+    const q = searchQuery.toLowerCase();
+    return !q || p.name?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q);
+  });
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: 700, color: '#1e293b' }}>
@@ -272,10 +279,26 @@ const ManageParents = () => {
       </Paper>
 
       {/* Parents List */}
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: '#1e293b', mb: 3 }}>
-        Existing Parents ({parents.length})
+      <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: '#1e293b', mb: 2 }}>
+        Existing Parents ({filteredParents.length})
       </Typography>
-      
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          placeholder="Search by name or email…"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          size="small"
+          sx={{ width: 320 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
+
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '30vh' }}>
           <CircularProgress />
@@ -297,8 +320,8 @@ const ManageParents = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {parents.map((parent) => (
-                <TableRow 
+              {filteredParents.map((parent) => (
+                <TableRow
                   key={parent._id}
                   sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                 >
@@ -342,6 +365,13 @@ const ManageParents = () => {
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredParents.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    No parents match your search
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>

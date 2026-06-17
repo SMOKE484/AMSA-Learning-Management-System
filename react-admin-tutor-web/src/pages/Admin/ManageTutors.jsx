@@ -3,9 +3,10 @@ import {
   Box, Typography, TextField, Button, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, CircularProgress,
   Grid, FormControl, InputLabel, Select, MenuItem, Chip, OutlinedInput,
-  IconButton
+  IconButton, InputAdornment
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import SearchIcon from '@mui/icons-material/Search';
 import { format } from 'date-fns';
 import api from '../../services/apiService';
 import { academicService } from '../../services/academicService';
@@ -27,6 +28,7 @@ const ManageTutors = () => {
   });
 
   const { showSnackbar } = useSnackbar();
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -104,6 +106,11 @@ const ManageTutors = () => {
       showSnackbar(err.response?.data?.message || 'Failed to delete tutor.', 'error');
     }
   };
+
+  const filteredTutors = tutors.filter(t => {
+    const q = searchQuery.toLowerCase();
+    return !q || t.user?.name?.toLowerCase().includes(q) || t.user?.email?.toLowerCase().includes(q);
+  });
 
   return (
     <Box>
@@ -251,10 +258,26 @@ const ManageTutors = () => {
       </Paper>
       
       {/* Tutors List */}
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: '#1e293b', mb: 3 }}>
-        Existing Tutors ({tutors.length})
+      <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: '#1e293b', mb: 2 }}>
+        Existing Tutors ({filteredTutors.length})
       </Typography>
-      
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          placeholder="Search by name or email…"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          size="small"
+          sx={{ width: 320 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
+
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '30vh' }}>
           <CircularProgress />
@@ -277,7 +300,7 @@ const ManageTutors = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {tutors.map((tutor) => (
+              {filteredTutors.map((tutor) => (
                 <TableRow 
                   key={tutor._id}
                   sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
@@ -339,6 +362,13 @@ const ManageTutors = () => {
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredTutors.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    No tutors match your search
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>

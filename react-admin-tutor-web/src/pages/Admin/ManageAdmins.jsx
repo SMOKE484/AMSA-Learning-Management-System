@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, TextField, Button, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, CircularProgress,
-  Grid, IconButton, Dialog, DialogTitle, DialogContent, DialogActions
+  Grid, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, InputAdornment
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import SearchIcon from '@mui/icons-material/Search';
 import { format } from 'date-fns';
 import api from '../../services/apiService';
 import { useSnackbar } from '../../context/SnackbarContext';
@@ -25,6 +26,7 @@ const ManageAdmins = () => {
 
   const { showSnackbar } = useSnackbar();
   const { user } = useAuth();
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchAdmins = async () => {
     try {
@@ -112,6 +114,11 @@ const ManageAdmins = () => {
     }
   };
 
+  const filteredAdmins = admins.filter(a => {
+    const q = searchQuery.toLowerCase();
+    return !q || a.name?.toLowerCase().includes(q) || a.email?.toLowerCase().includes(q);
+  });
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: 700, color: '#1e293b' }}>
@@ -174,9 +181,25 @@ const ManageAdmins = () => {
       </Paper>
 
       {/* Admins List */}
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: '#1e293b', mb: 3 }}>
-        Existing Admins ({admins.length})
+      <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: '#1e293b', mb: 2 }}>
+        Existing Admins ({filteredAdmins.length})
       </Typography>
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          placeholder="Search by name or email…"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          size="small"
+          sx={{ width: 320 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '30vh' }}>
@@ -194,7 +217,7 @@ const ManageAdmins = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {admins.map((admin) => {
+              {filteredAdmins.map((admin) => {
                 const isSelf = user?._id === admin._id || user?.id === admin._id;
                 return (
                   <TableRow key={admin._id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
@@ -232,6 +255,13 @@ const ManageAdmins = () => {
                   </TableRow>
                 );
               })}
+              {filteredAdmins.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    No admins match your search
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>

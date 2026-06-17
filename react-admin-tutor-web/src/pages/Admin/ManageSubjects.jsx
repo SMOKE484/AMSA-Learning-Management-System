@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, TextField, CircularProgress, Chip,
-  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Tooltip
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Tooltip, InputAdornment
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import api from '../../services/apiService';
 import { useSnackbar } from '../../context/SnackbarContext';
 
@@ -15,6 +16,7 @@ const ManageSubjects = () => {
   const [loading, setLoading] = useState(true);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [adding, setAdding] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [editDialog, setEditDialog] = useState({ open: false, subject: null, name: '' });
   const [deleteDialog, setDeleteDialog] = useState({ open: false, subject: null });
@@ -95,6 +97,10 @@ const ManageSubjects = () => {
     );
   }
 
+  const filteredSubjects = subjects.filter(s =>
+    !searchQuery || s.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: 700, color: '#1e293b' }}>
@@ -128,6 +134,22 @@ const ManageSubjects = () => {
       </Paper>
 
       {/* Subjects Table */}
+      <Box sx={{ mb: 2 }}>
+        <TextField
+          placeholder="Search subjects…"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          size="small"
+          sx={{ width: 320 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
       <Paper sx={{ borderRadius: 3, boxShadow: '0 4px 6px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         <TableContainer>
           <Table>
@@ -139,7 +161,7 @@ const ManageSubjects = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {subjects.map((subject) => (
+              {filteredSubjects.map((subject) => (
                 <TableRow
                   key={subject._id}
                   sx={{ '&:hover': { backgroundColor: '#f8fafc' } }}
@@ -182,10 +204,17 @@ const ManageSubjects = () => {
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredSubjects.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    {searchQuery ? 'No subjects match your search' : 'No subjects found'}
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>
-        {subjects.length === 0 && (
+        {subjects.length === 0 && !searchQuery && (
           <Box sx={{ textAlign: 'center', py: 6 }}>
             <Typography variant="h6" sx={{ color: '#64748b' }}>No subjects found</Typography>
             <Typography variant="body2" sx={{ color: '#94a3b8' }}>Add a subject above to get started.</Typography>

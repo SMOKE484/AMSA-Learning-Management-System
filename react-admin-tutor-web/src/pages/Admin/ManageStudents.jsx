@@ -3,10 +3,11 @@ import {
   Box, Typography, TextField, Button, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, CircularProgress,
   Grid, FormControl, InputLabel, Select, MenuItem, Chip, OutlinedInput,
-  IconButton, Dialog, DialogTitle, DialogContent, DialogActions
+  IconButton, Dialog, DialogTitle, DialogContent, DialogActions, InputAdornment
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import SearchIcon from '@mui/icons-material/Search';
 import { format } from 'date-fns';
 import api from '../../services/apiService';
 import { academicService } from '../../services/academicService';
@@ -39,6 +40,8 @@ const ManageStudents = () => {
   });
 
   const { showSnackbar } = useSnackbar();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [gradeFilter, setGradeFilter] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -182,6 +185,13 @@ const handleSubmit = async (e) => {
     }
   };
 
+  const filteredStudents = students.filter(s => {
+    const q = searchQuery.toLowerCase();
+    const matchesText = !q || s.user?.name?.toLowerCase().includes(q) || s.user?.email?.toLowerCase().includes(q);
+    const matchesGrade = !gradeFilter || String(s.grade) === gradeFilter;
+    return matchesText && matchesGrade;
+  });
+
   return (
     <Box>
       <Typography variant="h4" gutterBottom sx={{ mb: 4, fontWeight: 700, color: '#1e293b' }}>
@@ -323,10 +333,33 @@ const handleSubmit = async (e) => {
       </Paper>
       
       {/* Students List */}
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: '#1e293b', mb: 3 }}>
-        Existing Students ({students.length})
+      <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: '#1e293b', mb: 2 }}>
+        Existing Students ({filteredStudents.length})
       </Typography>
-      
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
+        <TextField
+          placeholder="Search by name or email…"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          size="small"
+          sx={{ width: 320 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>Grade</InputLabel>
+          <Select value={gradeFilter} label="Grade" onChange={e => setGradeFilter(e.target.value)}>
+            <MenuItem value="">All grades</MenuItem>
+            {grades.map(g => <MenuItem key={g} value={String(g)}>Grade {g}</MenuItem>)}
+          </Select>
+        </FormControl>
+      </Box>
+
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '30vh' }}>
           <CircularProgress />
@@ -350,7 +383,7 @@ const handleSubmit = async (e) => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {students.map((student) => (
+              {filteredStudents.map((student) => (
                 <TableRow 
                   key={student._id}
                   sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
@@ -414,6 +447,13 @@ const handleSubmit = async (e) => {
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredStudents.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                    No students match your search
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>
