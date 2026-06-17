@@ -4,7 +4,7 @@ import {
   CircularProgress, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip,
   FormControl, InputLabel, Select, MenuItem, Button,
-  TextField, Collapse, Divider
+  TextField, Collapse, Divider, Autocomplete
 } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
@@ -47,6 +47,7 @@ const ClassAttendance = () => {
   // Mark Attendance section
   const [markSectionOpen, setMarkSectionOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState('');
+  const [classDateFilter, setClassDateFilter] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [markStatuses, setMarkStatuses] = useState({});
   const [savingAll, setSavingAll] = useState(false);
   const [classAttendanceMap, setClassAttendanceMap] = useState({});
@@ -142,6 +143,12 @@ const ClassAttendance = () => {
     const found = allStudents.find(s => s._id === id?.toString());
     return found?.grade ? `Grade ${found.grade}` : '—';
   };
+
+  const filteredSchedules = schedules.filter(s => {
+    if (!classDateFilter) return true;
+    if (!s.scheduledDate) return false;
+    return format(new Date(s.scheduledDate), 'yyyy-MM-dd') === classDateFilter;
+  });
 
   const selectedClass = schedules.find(s => s._id === selectedClassId);
   const enrolledStudents = selectedClass?.students || [];
@@ -257,22 +264,38 @@ const ClassAttendance = () => {
         <Collapse in={markSectionOpen}>
           <Divider />
           <Box sx={{ p: 3 }}>
-            <FormControl size="small" sx={{ minWidth: 340, mb: 3 }}>
-              <InputLabel>Select Class</InputLabel>
-              <Select
-                value={selectedClassId}
-                label="Select Class"
-                onChange={(e) => handleClassSelect(e.target.value)}
-              >
-                <MenuItem value=""><em>— Choose a class —</em></MenuItem>
-                {schedules.map(s => (
-                  <MenuItem key={s._id} value={s._id}>
-                    {s.subject} — Grade {s.grade} — {s.title} (
-                    {s.scheduledDate ? format(new Date(s.scheduledDate), 'MMM dd, yyyy') : 'No date'})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <TextField
+                label="Class Date"
+                type="date"
+                size="small"
+                value={classDateFilter}
+                onChange={(e) => {
+                  setClassDateFilter(e.target.value);
+                  setSelectedClassId('');
+                  setMarkStatuses({});
+                }}
+                InputLabelProps={{ shrink: true }}
+                sx={{ width: 180 }}
+              />
+
+              <Autocomplete
+                options={filteredSchedules}
+                getOptionLabel={(s) =>
+                  `${s.subject} — Grade ${s.grade} — ${s.title} (${
+                    s.scheduledDate ? format(new Date(s.scheduledDate), 'MMM dd, yyyy') : 'No date'
+                  })`
+                }
+                value={filteredSchedules.find(s => s._id === selectedClassId) || null}
+                onChange={(_, newValue) => handleClassSelect(newValue?._id || '')}
+                renderInput={(params) => (
+                  <TextField {...params} label="Search Class" size="small" placeholder="Type subject, grade or title…" />
+                )}
+                sx={{ minWidth: 300, flex: 1 }}
+                noOptionsText="No classes found for this date"
+                isOptionEqualToValue={(option, value) => option._id === value._id}
+              />
+            </Box>
 
             {selectedClassId && enrolledStudents.length === 0 && (
               <Typography variant="body2" color="text.secondary">
