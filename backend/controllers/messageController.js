@@ -6,9 +6,11 @@ import User from '../models/user.js';
 const expo = new Expo();
 
 // Admins can access any conversation; parents only their own.
+// Works whether or not the parent field has been populated.
 const isParticipant = (conversation, userId, role) => {
   if (role === 'admin') return true;
-  return conversation.parent.toString() === userId.toString();
+  const parentId = conversation.parent?._id ?? conversation.parent;
+  return parentId.toString() === userId.toString();
 };
 
 // GET /api/messages/conversations
