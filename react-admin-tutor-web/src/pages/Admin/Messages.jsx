@@ -3,7 +3,7 @@ import {
   Box, Typography, TextField, Button, Paper, CircularProgress,
   List, ListItemButton, ListItemText, ListItemAvatar, Avatar,
   Badge, Dialog, DialogTitle, DialogContent, DialogActions,
-  FormControl, InputLabel, Select, MenuItem, Divider, IconButton,
+  Divider, IconButton, Autocomplete,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import AddIcon from '@mui/icons-material/Add';
@@ -39,7 +39,7 @@ export default function Messages() {
   // New conversation dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [parents, setParents]       = useState([]);
-  const [selectedParent, setSelectedParent] = useState('');
+  const [selectedParent, setSelectedParent] = useState(null);
   const [startingConv, setStartingConv]     = useState(false);
 
   const bottomRef = useRef(null);
@@ -109,7 +109,7 @@ export default function Messages() {
   // New conversation dialog
   const openDialog = async () => {
     setDialogOpen(true);
-    setSelectedParent('');
+    setSelectedParent(null);
     if (parents.length === 0) {
       try {
         const res = await api.get('/admin/parents');
@@ -124,7 +124,7 @@ export default function Messages() {
     if (!selectedParent) return showSnackbar('Please select a parent', 'warning');
     setStartingConv(true);
     try {
-      const res = await api.post('/messages', { parentId: selectedParent });
+      const res = await api.post('/messages', { parentId: selectedParent._id });
       const conv = res.data.conversation;
       setConversations(prev => {
         const exists = prev.find(c => c._id === conv._id);
@@ -311,20 +311,32 @@ export default function Messages() {
         <DialogTitle fontWeight={700}>New Conversation</DialogTitle>
         <Divider />
         <DialogContent sx={{ pt: 2 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Select Parent</InputLabel>
-            <Select
-              value={selectedParent}
-              label="Select Parent"
-              onChange={e => setSelectedParent(e.target.value)}
-            >
-              {parents.map(p => (
-                <MenuItem key={p._id} value={p._id}>
-                  {p.user?.name || p.name || p.email}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Autocomplete
+            options={parents}
+            value={selectedParent}
+            onChange={(_, val) => setSelectedParent(val)}
+            getOptionLabel={p => p.name || p.email || ''}
+            isOptionEqualToValue={(opt, val) => opt._id === val._id}
+            renderInput={params => (
+              <TextField
+                {...params}
+                label="Search parents…"
+                size="small"
+                autoFocus
+                placeholder="Type a name or email"
+              />
+            )}
+            renderOption={(props, p) => (
+              <li {...props} key={p._id}>
+                <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                  <Typography fontSize={14} fontWeight={600}>{p.name}</Typography>
+                  <Typography fontSize={12} color="text.secondary">{p.email}</Typography>
+                </Box>
+              </li>
+            )}
+            noOptionsText="No parents found"
+            fullWidth
+          />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setDialogOpen(false)} sx={{ textTransform: 'none' }}>Cancel</Button>
