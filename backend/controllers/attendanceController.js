@@ -231,6 +231,78 @@ export const getClassReport = async (req, res) => {
   }
 };
 
+export const markBatchAttendance = async (req, res) => {
+  try {
+    const { classId } = req.params;
+    const { students } = req.body; // [{ studentId, status }]
+
+    if (!Array.isArray(students) || students.length === 0) {
+      return res.status(400).json({ message: 'students must be a non-empty array' });
+    }
+
+    const VALID_STATUSES = ['present', 'absent', 'late', 'excused'];
+
+    const classSchedule = await ClassSchedule.findById(classId);
+    if (!classSchedule) return res.status(404).json({ message: 'Class not found' });
+
+    if (req.role === 'tutor') {
+      if (!req.tutorId || classSchedule.tutor.toString() !== req.tutorId.toString()) {
+        return res.status(403).json({ message: 'You can only mark attendance for your own classes' });
+      }
+    }
+
+    const results = await Promise.all(
+      students.map(async ({ studentId, status }) => {
+        if (!studentId || !VALID_STATUSES.includes(status)) {
+          return { studentId, success: false, error: 'Invalid studentId or status' };
+        }
+
+        const isEnrolled = classSchedule.students.some(s => s.toString() === studentId.toString());
+        if (!isEnrolled) {
+          return { studentId, success: false, error: 'Student not enrolled in this class' };
+        }
+
+        try {
+          const existing = await Attendance.findOne({ class: classId, student: studentId });
+
+          await Attendance.findOneAndUpdate(
+            { class: classId, student: studentId },
+            {
+              $set: {
+                status,
+                isVerified: true,
+                autoMarked: false,
+                notes: `Marked by ${req.role}`,
+                manualOverride: {
+                  by: req.userId,
+                  reason: `Marked by ${req.role}`,
+                  timestamp: new Date(),
+                  originalStatus: existing?.status ?? null
+                }
+              }
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+          );
+
+          NotificationService.sendManualAttendanceNotification(studentId, classSchedule, status, req.role);
+
+          return { studentId, success: true };
+        } catch (err) {
+          return { studentId, success: false, error: err.message };
+        }
+      })
+    );
+
+    const saved = results.filter(r => r.success).length;
+    const errors = results.filter(r => !r.success);
+
+    res.json({ success: true, saved, errors, results });
+  } catch (error) {
+    console.error('markBatchAttendance error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const manualOverride = async (req, res) => {
   try {
     const { attendanceId } = req.params;

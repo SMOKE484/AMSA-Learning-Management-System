@@ -1,5 +1,5 @@
 import express from 'express';
-import { checkIn, checkOut, getClassAttendance, getAttendanceHistory, manualOverride, getClassReport, getAllAttendance, markStudentAttendance } from '../controllers/attendanceController.js';
+import { checkIn, checkOut, getClassAttendance, getAttendanceHistory, manualOverride, getClassReport, getAllAttendance, markStudentAttendance, markBatchAttendance } from '../controllers/attendanceController.js';
 import { authenticate, authorize } from '../middleware/authMiddleware.js';
 import { validateGeoLocation } from '../middleware/geoValidation.js';
 
@@ -15,5 +15,6 @@ router.get('/classes/:classId/report', authenticate, authorize(['tutor']), getCl
 router.patch('/attendance/:attendanceId/override', authenticate, authorize(['tutor', 'admin']), manualOverride);
 router.get('/admin/all', authenticate, authorize(['admin']), getAllAttendance);
 router.post('/classes/:classId/mark-student', authenticate, authorize(['admin', 'tutor']), markStudentAttendance);
+router.post('/classes/:classId/mark-batch', authenticate, authorize(['admin', 'tutor']), markBatchAttendance);
 
 export default router;

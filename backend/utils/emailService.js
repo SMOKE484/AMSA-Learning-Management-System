@@ -1,15 +1,6 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-  connectionTimeout: 5000,
-  greetingTimeout: 5000,
-  socketTimeout: 10000,
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const CONFIGS = {
   verification: {
@@ -27,9 +18,7 @@ const CONFIGS = {
 };
 
 export const sendOTPEmail = async (to, name, otp, purpose) => {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-    throw new Error('Gmail SMTP credentials not configured (GMAIL_USER / GMAIL_APP_PASSWORD missing in environment)');
-  }
+  if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
 
   const cfg = CONFIGS[purpose];
 
@@ -63,10 +52,12 @@ export const sendOTPEmail = async (to, name, otp, purpose) => {
     </html>
   `;
 
-  await transporter.sendMail({
-    from: `"AMSA LMS" <${process.env.GMAIL_USER}>`,
+  const { error } = await resend.emails.send({
+    from: process.env.RESEND_FROM || 'AMSA LMS <onboarding@resend.dev>',
     to,
     subject: cfg.subject,
     html,
   });
+
+  if (error) throw new Error(error.message);
 };
