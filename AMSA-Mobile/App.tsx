@@ -9,6 +9,15 @@ import { View, Text, StyleSheet, Platform, AppState, Modal, TouchableOpacity, Li
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Notifications from 'expo-notifications';
 import * as Font from 'expo-font';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 import * as SplashScreen from 'expo-splash-screen';
 import * as Updates from 'expo-updates';
 import { BlurView } from 'expo-blur';

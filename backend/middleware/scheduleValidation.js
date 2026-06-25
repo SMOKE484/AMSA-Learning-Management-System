@@ -6,7 +6,7 @@ import { TimeService } from "../utils/timeService.js";
  */
 export const validateSchedule = async (req, res, next) => {
   try {
-    const { scheduledDate, startTime, endTime, tutor } = req.body;
+    const { scheduledDate, startTime, endTime, tutor, subject, grade } = req.body;
     const classId = req.params.id; // For updates, exclude current class
 
     // Basic time validation
@@ -60,7 +60,9 @@ export const validateSchedule = async (req, res, next) => {
       scheduledDate,
       startTime,
       endTime,
-      classId
+      classId,
+      subject,
+      grade
     );
 
     if (conflict) {
@@ -214,9 +216,9 @@ export const validateCancellation = async (req, res, next) => {
 };
 
 // Helper function to check schedule conflicts
-async function checkScheduleConflict(tutorId, scheduledDate, startTime, endTime, excludeId = null) {
+async function checkScheduleConflict(tutorId, scheduledDate, startTime, endTime, excludeId = null, subject = null, grade = null) {
   const classDate = new Date(scheduledDate);
-  
+
   const filter = {
     tutor: tutorId,
     scheduledDate: classDate,
@@ -245,6 +247,10 @@ async function checkScheduleConflict(tutorId, scheduledDate, startTime, endTime,
       }
     ]
   };
+
+  // Concurrent classes for different subjects/grades serve different student groups — not a conflict
+  if (subject) filter.subject = subject;
+  if (grade)   filter.grade   = grade.toString();
 
   if (excludeId) {
     filter._id = { $ne: excludeId };

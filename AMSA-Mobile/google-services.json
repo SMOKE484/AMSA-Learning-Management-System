@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "499226050117",
+    "project_id": "amsa-mobile",
+    "storage_bucket": "amsa-mobile.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:499226050117:android:ad06844a393b8263792d2c",
+        "android_client_info": {
+          "package_name": "com.vhulenda.AMSAMobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDo-E-4Lo7bWrq9DPNkwgJfSUhr_ELqU0A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
