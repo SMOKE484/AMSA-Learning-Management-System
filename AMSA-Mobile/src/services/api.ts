@@ -26,11 +26,11 @@ api.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    console.log(`[API] → ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, token ? '(token attached)' : '(NO TOKEN)');
+    if (__DEV__) console.log(`[API] → ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
     return config;
   },
   (error) => {
-    console.error('Request error:', error);
+    if (__DEV__) console.error('Request error:', error);
     return Promise.reject(error);
   }
 );
@@ -39,7 +39,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    console.error('Response error:', {
+    if (__DEV__) console.error('Response error:', {
       url: error.config?.url,
       status: error.response?.status,
       message: error.message,

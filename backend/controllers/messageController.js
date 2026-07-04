@@ -3,8 +3,7 @@ import Conversation from '../models/conversation.js';
 import Message from '../models/message.js';
 import User from '../models/user.js';
 import { getIo } from '../socket.js';
-
-const expo = new Expo();
+import { sendPushMessages } from '../utils/notificationService.js';
 
 // Admins can access any conversation; parents only their own.
 // Works whether or not the parent field has been populated.
@@ -69,11 +68,22 @@ export const getMessages = async (req, res) => {
     if (!isParticipant(conversation, req.userId, req.role))
       return res.status(403).json({ message: 'Access denied' });
 
-    const messages = await Message.find({ conversation: req.params.id })
-      .populate('sender', 'name role')
-      .sort({ createdAt: 1 });
+    // Newest `limit` messages (optionally older than `before`), returned in
+    // ascending order so existing clients render them unchanged.
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 100, 1), 200);
+    const filter = { conversation: req.params.id };
+    if (req.query.before) {
+      const before = new Date(req.query.before);
+      if (!isNaN(before.getTime())) filter.createdAt = { $lt: before };
+    }
 
-    res.json({ messages });
+    const messages = await Message.find(filter)
+      .populate('sender', 'name role')
+      .sort({ createdAt: -1 })
+      .limit(limit);
+    messages.reverse();
+
+    res.json({ messages, hasMore: messages.length === limit });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -110,23 +120,17 @@ export const sendMessage = async (req, res) => {
       { new: true }
     );
 
-    // Push notification to the other participant
+    // Push notification to the other participant — fire-and-forget so the
+    // sender isn't kept waiting on the Expo push API.
     const recipient = senderRole === 'admin' ? conversation.parent : conversation.admin;
     if (recipient?.pushToken && Expo.isExpoPushToken(recipient.pushToken)) {
-      try {
-        const chunks = expo.chunkPushNotifications([{
-          to:    recipient.pushToken,
-          sound: 'default',
-          title: 'New Message From AMSA President',
-          body:  content.trim().slice(0, 100),
-          data:  { screen: 'Messages' },
-        }]);
-        for (const chunk of chunks) {
-          await expo.sendPushNotificationsAsync(chunk);
-        }
-      } catch (pushErr) {
-        console.error('Push error (non-fatal):', pushErr);
-      }
+      sendPushMessages([{
+        to:    recipient.pushToken,
+        sound: 'default',
+        title: 'New Message From AMSA President',
+        body:  content.trim().slice(0, 100),
+        data:  { screen: 'Messages' },
+      }]).catch(pushErr => console.error('Push error (non-fatal):', pushErr));
     }
 
     await message.populate('sender', 'name role');

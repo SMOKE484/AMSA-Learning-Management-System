@@ -148,7 +148,8 @@ export const checkOut = async (req, res) => {
   try {
     const { classId } = req.params;
     const student = await Student.findOne({ user: req.userId });
-    
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
     const attendance = await Attendance.findOne({ class: classId, student: student._id });
     if (!attendance || !attendance.checkIn?.time) return res.status(400).json({ message: "Not signed in" });
     if (attendance.checkOut?.time) return res.status(400).json({ message: "Already signed out" });
@@ -165,6 +166,7 @@ export const getClassAttendance = async (req, res) => {
   try {
     const { classId } = req.params;
     const student = await Student.findOne({ user: req.userId });
+    if (!student) return res.status(404).json({ message: "Student not found" });
     const attendance = await Attendance.findOne({ class: classId, student: student._id }).populate('class', 'title subject startTime');
     res.json({ success: true, attendance });
   } catch (error) {
@@ -175,8 +177,15 @@ export const getClassAttendance = async (req, res) => {
 export const getAttendanceHistory = async (req, res) => {
   try {
     const student = await Student.findOne({ user: req.userId });
-    const history = await Attendance.find({ student: student._id }).populate('class', 'title subject scheduledDate').sort({ createdAt: -1 });
-    res.json({ success: true, history });
+    if (!student) return res.status(404).json({ message: "Student not found" });
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 100);
+    const history = await Attendance.find({ student: student._id })
+      .populate('class', 'title subject scheduledDate')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+    res.json({ success: true, history, page, limit });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -189,6 +198,11 @@ export const getAllAttendance = async (req, res) => {
     let query = {};
     if (classId && classId !== 'all') {
       query.class = classId;
+    }
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
     }
 
     const attendanceRecords = await Attendance.find(query)
@@ -218,13 +232,15 @@ export const getClassReport = async (req, res) => {
   try {
     const { classId } = req.params;
     const tutor = await Tutor.findOne({ user: req.userId });
-    
+    if (!tutor) return res.status(403).json({ message: "Access denied" });
+
     const classSchedule = await ClassSchedule.findById(classId);
     if (!classSchedule || classSchedule.tutor.toString() !== tutor._id.toString()) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const report = await Attendance.find({ class: classId }).populate('student', 'user').populate('student.user', 'name email');
+    const report = await Attendance.find({ class: classId })
+      .populate({ path: 'student', select: 'user', populate: { path: 'user', select: 'name email' } });
     res.json({ success: true, report });
   } catch (error) {
     res.status(500).json({ message: error.message });

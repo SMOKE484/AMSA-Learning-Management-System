@@ -1,5 +1,5 @@
 // src/screens/parent/DashboardScreen.tsx
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, Alert,
@@ -9,7 +9,7 @@ import { parentService } from '../../services/parent';
 import { getNotifications } from '../../services/notifications';
 import { messageService } from '../../services/messages';
 import { socketService } from '../../services/socket';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import { ParentStackParamList } from '../../types/navigation';
 import { registerForPushNotificationsAsync } from '../../utils/notifications';
 import * as Notifications from 'expo-notifications';
@@ -121,7 +121,7 @@ const ParentDashboardScreen = () => {
 
       const activity: any[] = allMarks.slice(0, 3).map((mark: any) => ({
         type: 'mark',
-        title: `${mark.student.user.name} — ${mark.subject}`,
+        title: `${mark.student?.user?.name ?? 'Your child'} — ${mark.subject}`,
         time: formatActivityTime(mark.createdAt || mark.date),
         icon: 'school',
         color: BRAND.teal,
@@ -135,10 +135,13 @@ const ParentDashboardScreen = () => {
     }
   };
 
-  useEffect(() => {
+  // Refetch whenever the tab regains focus so stats/badges never go stale
+  useFocusEffect(useCallback(() => {
     loadDashboardData();
     getNotifications(1, true).then(r => setUnreadCount(r.unreadCount)).catch(() => {});
+  }, []));
 
+  useEffect(() => {
     const refreshMsgBadge = () => {
       messageService.getConversations()
         .then(({ conversations }) => setUnreadMsgCount(conversations.reduce((sum, c) => sum + (c.unreadByParent || 0), 0)))

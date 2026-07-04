@@ -1,5 +1,6 @@
 // src/screens/student/MarksScreen.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, RefreshControl,
@@ -102,7 +103,7 @@ const StudentMarksScreen = () => {
     }
   };
 
-  useEffect(() => { loadMarks(); }, []);
+  useFocusEffect(useCallback(() => { loadMarks(); }, []));
 
   const onRefresh = async () => {
     setRefreshing(true);

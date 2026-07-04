@@ -1,5 +1,5 @@
 // src/screens/student/DashboardScreen.tsx
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, ActivityIndicator, Platform, Animated, Modal
@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { studentService, ClassSchedule } from '../../services/student';
 import { getNotifications } from '../../services/notifications';
-import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { useNavigation, NavigationProp, useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList, StudentStackParamList } from '../../types/navigation';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import * as Application from 'expo-application';
@@ -21,6 +21,7 @@ import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
 import { BRAND, BrandPalette } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
 import { useTheme } from '../../context/ThemeContext';
+import { toLocalDateString } from '../../utils/formatting';
 
 // Accent-only maps — identical in both themes, safe as module-level constants
 const SUBJECT_COLORS: Record<string, string> = {
@@ -253,10 +254,6 @@ const StudentDashboardScreen = () => {
   }, []);
 
   useEffect(() => {
-    getNotifications(1, true).then(r => setUnreadCount(r.unreadCount)).catch(() => {});
-  }, []);
-
-  useEffect(() => {
     const today = new Date();
     const start = new Date(today);
     start.setDate(today.getDate() - today.getDay());
@@ -265,7 +262,11 @@ const StudentDashboardScreen = () => {
     }));
   }, []);
 
-  useEffect(() => { loadDashboardData(); }, []);
+  // Refetch whenever the tab regains focus so marks/classes never go stale
+  useFocusEffect(useCallback(() => {
+    loadDashboardData();
+    getNotifications(1, true).then(r => setUnreadCount(r.unreadCount)).catch(() => {});
+  }, []));
 
   const showAlert = (
     title: string, message: string,
@@ -363,17 +364,17 @@ const StudentDashboardScreen = () => {
   };
 
   const getClassesForDate = () => {
-    const ds = selectedDate.toISOString().split('T')[0];
+    const ds = toLocalDateString(selectedDate);
     return classSchedule
-      .filter(c => new Date(c.scheduledDate).toISOString().split('T')[0] === ds &&
+      .filter(c => toLocalDateString(c.scheduledDate) === ds &&
         (c.status === 'scheduled' || c.status === 'ongoing'))
       .sort((a, b) => a.startTime.localeCompare(b.startTime));
   };
 
   const getDayClasses = (date: Date) => {
-    const ds = date.toISOString().split('T')[0];
+    const ds = toLocalDateString(date);
     return classSchedule.filter(c =>
-      new Date(c.scheduledDate).toISOString().split('T')[0] === ds && c.status === 'scheduled');
+      toLocalDateString(c.scheduledDate) === ds && c.status === 'scheduled');
   };
 
   const renderRightActions = (progress: any, dragX: any, classItem: ClassSchedule) => {

@@ -15,20 +15,21 @@ export const login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ message: "Invalid email or password" });
 
+    let roleId = null;
+    if (user.role === 'student') {
+      const student = await Student.findOne({ user: user._id }).select('_id').lean();
+      roleId = student ? student._id : null;
+    } else if (user.role === 'tutor') {
+      const tutor = await Tutor.findOne({ user: user._id }).select('_id').lean();
+      roleId = tutor ? tutor._id : null;
+    }
+
+    // roleId claim lets the auth middleware skip a per-request DB lookup
     const token = jwt.sign(
-      { userId: user._id, role: user.role, email: user.email },
+      { userId: user._id, role: user.role, email: user.email, roleId },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
-
-    let roleId = null;
-    if (user.role === 'student') {
-      const student = await Student.findOne({ user: user._id });
-      roleId = student ? student._id : null;
-    } else if (user.role === 'tutor') {
-      const tutor = await Tutor.findOne({ user: user._id });
-      roleId = tutor ? tutor._id : null;
-    }
 
     res.json({
       message: "Login successful",

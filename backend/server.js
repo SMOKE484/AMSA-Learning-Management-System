@@ -6,6 +6,8 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
+import compression from "compression";
+import rateLimit from "express-rate-limit";
 import { authenticate, authorize } from "./middleware/authMiddleware.js";
 import authRoutes from "./routes/authRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
@@ -34,13 +36,31 @@ const httpServer = http.createServer(app);
 app.set('trust proxy', 1);
 
 app.use(helmet());
+app.use(compression());
 app.use(cors({
   origin: CORS_ORIGINS,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+
+// ── Rate limiting ────────────────────────────────────────────────────────────
+// Lenient global cap; strict cap on login (each attempt costs a bcrypt hash)
+app.use('/api/', rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many requests, please slow down.' },
+}));
+app.use('/api/auth/login', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many login attempts. Try again in 15 minutes.' },
+}));
 
 // ── Socket.IO ────────────────────────────────────────────────────────────────
 const io = new SocketServer(httpServer, {
@@ -72,8 +92,21 @@ io.on('connection', (socket) => {
   });
 });
 
-mongoose
-  .connect(process.env.MONGO_URI)
+// Retry the initial connection instead of leaving a zombie process that
+// never listens if Mongo is briefly unreachable at deploy time.
+const connectWithRetry = async (attempt = 1) => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    return true;
+  } catch (error) {
+    const delay = Math.min(attempt * 5000, 30000);
+    console.error(`MongoDB connection error (attempt ${attempt}): ${error.message} — retrying in ${delay / 1000}s`);
+    await new Promise(r => setTimeout(r, delay));
+    return connectWithRetry(attempt + 1);
+  }
+};
+
+connectWithRetry()
   .then(async () => {
     console.log("MongoDB connected successfully");
 
@@ -143,6 +176,22 @@ mongoose
         console.log('School location not configured - geo-fencing disabled');
       }
     });
+
+    // Graceful shutdown — Railway sends SIGTERM on every deploy
+    const shutdown = async (signal) => {
+      console.log(`${signal} received — shutting down gracefully`);
+      httpServer.close(async () => {
+        try {
+          await mongoose.connection.close();
+        } finally {
+          process.exit(0);
+        }
+      });
+      // Force-exit if connections refuse to drain
+      setTimeout(() => process.exit(1), 10000).unref();
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
   })
   .catch((error) => {
     console.error("MongoDB connection error:", error.message);
@@ -351,4 +400,25 @@ app.put("/api/admin/school-config", authenticate, authorize(['admin']), async (r
   } catch (error) {
     res.status(500).json({ message: 'Failed to update configuration', error: error.message });
   }
+});
+
+// ── 404 + global error handlers (must be registered after all routes) ───────
+app.use((req, res) => {
+  res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
+});
+
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  if (res.headersSent) return;
+  const status = err.status || (err.name === 'MulterError' ? 400 : 500);
+  res.status(status).json({ message: err.message || 'Internal server error' });
+});
+
+// Last-resort guards so one bad promise doesn't kill the whole server
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
 });

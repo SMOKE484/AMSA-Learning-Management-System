@@ -1,5 +1,5 @@
 // src/screens/parent/ChildrenScreen.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   RefreshControl, Alert, Image,
@@ -7,7 +7,7 @@ import {
 import { getAvatarUrl } from '../../utils/avatarUtils';
 import { parentService } from '../../services/parent';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Icon } from '../../components/Icon';
 import BouncingDotsLoader from '../../components/BouncingDotsLoader';
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
@@ -96,7 +96,7 @@ const ParentChildrenScreen = () => {
     setRefreshing(false);
   };
 
-  useEffect(() => { loadChildren(); }, []);
+  useFocusEffect(useCallback(() => { loadChildren(); }, []));
 
   if (loading) {
     return (
@@ -141,9 +141,9 @@ const ParentChildrenScreen = () => {
           return (
             <GlassCard key={child._id} accentColor={BRAND.teal} style={s.childCard}>
               <View style={s.childHeader}>
-                <Image source={{ uri: getAvatarUrl(child.user.name) }} style={s.avatar} />
+                <Image source={{ uri: getAvatarUrl(child.user?.name || 'Student') }} style={s.avatar} />
                 <View style={s.childInfo}>
-                  <Text style={s.childName}>{child.user.name}</Text>
+                  <Text style={s.childName}>{child.user?.name || 'Student'}</Text>
                   <Text style={s.childGrade}>Grade {child.grade}</Text>
                 </View>
               </View>

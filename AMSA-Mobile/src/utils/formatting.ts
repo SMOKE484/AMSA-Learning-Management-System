@@ -72,3 +72,16 @@ export function getGradeColor(grade: string): string {
   };
   return map[grade] || BRAND.textSecondary;
 }
+
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+// LOCAL calendar date as YYYY-MM-DD. Never use toISOString().split('T')[0] for
+// day comparisons — that's UTC, and SA (UTC+2) evening classes land on the
+// wrong day.
+export function toLocalDateString(d: Date | string): string {
+  const date = typeof d === 'string' ? new Date(d) : d;
+  if (isNaN(date.getTime())) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}

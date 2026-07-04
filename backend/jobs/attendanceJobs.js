@@ -68,7 +68,7 @@ export class AttendanceJobs {
   }
 
   /**
-   * 2. Send 30-min reminders
+   * 2. Send 30-min reminders (once per class, tracked via reminderSent flag)
    */
   static async checkUpcomingClasses() {
     try {
@@ -77,19 +77,18 @@ export class AttendanceJobs {
 
       const upcomingClasses = await ClassSchedule.find({
         classStartTime: { $gte: now, $lte: in30Minutes },
-        status: 'scheduled'
+        status: 'scheduled',
+        reminderSent: { $ne: true }
       }).populate('students', 'user');
 
       for (const classItem of upcomingClasses) {
-        const timeDiff = (new Date(classItem.classStartTime) - now) / 60000;
-        
-        if (timeDiff <= 30 && timeDiff > 29) {
-          console.log(`Sending reminder for class: ${classItem.title}`);
-          await NotificationService.sendClassNotification(
-             classItem.students.map(s => s._id), 
-             classItem
-          );
-        }
+        console.log(`Sending reminder for class: ${classItem.title}`);
+        // Flag first so a crash mid-send can't cause repeated spam
+        await ClassSchedule.updateOne({ _id: classItem._id }, { $set: { reminderSent: true } });
+        await NotificationService.sendClassNotification(
+           classItem.students.map(s => s._id),
+           classItem
+        );
       }
     } catch (error) {
       console.error('Check upcoming classes error:', error);
@@ -106,14 +105,14 @@ export class AttendanceJobs {
       const classesToOpen = await ClassSchedule.find({
         checkInStart: { $lte: now },
         checkInEnd: { $gte: now },
-        status: 'ongoing' 
+        status: 'ongoing',
+        checkInNotificationSent: { $ne: true }
       }).populate('students');
 
       for (const classItem of classesToOpen) {
-        // Send check-in available notifications
-        // (Logic assumes NotificationService handles deduplication or it's okay to resend)
+        await ClassSchedule.updateOne({ _id: classItem._id }, { $set: { checkInNotificationSent: true } });
         await NotificationService.sendCheckInAvailableNotification(
-            classItem.students.map(s => s._id), 
+            classItem.students.map(s => s._id),
             classItem
         );
       }
@@ -157,7 +156,7 @@ export class AttendanceJobs {
       const now = new Date();
       const classesToClose = await ClassSchedule.find({
         checkOutEnd: { $lt: now },
-        status: { $ne: 'completed' } 
+        status: { $in: ['scheduled', 'ongoing'] }
       });
 
       for (const classItem of classesToClose) {
@@ -179,35 +178,37 @@ export class AttendanceJobs {
       const enrolledStudentIds = classItem.students.map(s => s._id.toString());
 
       // 2. Get students who successfully marked 'present' or 'late'
-      const existingAttendance = await Attendance.find({ class: classItem._id });
-      const presentStudentIds = existingAttendance
+      const existingAttendance = await Attendance.find({ class: classItem._id })
+        .select('student status').lean();
+      const presentStudentIds = new Set(existingAttendance
         .filter(a => a.status === 'present' || a.status === 'late')
-        .map(a => a.student.toString());
+        .map(a => a.student.toString()));
 
       // 3. Identify who is missing
-      const absentStudentIds = enrolledStudentIds.filter(id => !presentStudentIds.includes(id));
+      const absentStudentIds = enrolledStudentIds.filter(id => !presentStudentIds.has(id));
 
       if (absentStudentIds.length === 0) return;
 
       console.log(`Detected ${absentStudentIds.length} absentees for ${classItem.title}`);
 
-      // 4. Process Absentees
-      for (const studentId of absentStudentIds) {
-        // A. Update Database
-        await Attendance.findOneAndUpdate(
-            { class: classItem._id, student: studentId },
-            { 
-                status: 'absent', 
-                autoMarked: true,
-                notes: 'Auto-marked by system - Register Closed'
-            },
-            { upsert: true, new: true }
-        );
+      // 4. One bulk upsert instead of a findOneAndUpdate per student
+      await Attendance.bulkWrite(absentStudentIds.map(studentId => ({
+        updateOne: {
+          filter: { class: classItem._id, student: studentId },
+          update: {
+            $set: {
+              status: 'absent',
+              autoMarked: true,
+              notes: 'Auto-marked by system - Register Closed'
+            }
+          },
+          upsert: true,
+        }
+      })));
 
-        // B. Notify Parents
-        await NotificationService.sendAbsentAlert(studentId, classItem);
-      }
-      
+      // 5. One batched parent alert instead of a send per student
+      await NotificationService.sendAbsentAlertsBatch(absentStudentIds, classItem);
+
     } catch (error) {
       console.error('Mark absent students error:', error);
     }

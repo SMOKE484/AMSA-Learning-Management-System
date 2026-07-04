@@ -44,37 +44,43 @@ const notificationSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// Per-user notification feed + unread counts
+notificationSchema.index({ recipient: 1, read: 1, createdAt: -1 });
+// Hourly cleanup job scans by age
+notificationSchema.index({ createdAt: 1 });
+// Reminder dedup lookup
+notificationSchema.index({ relatedClass: 1, type: 1, recipient: 1 });
+
 // === STATIC METHOD: Create Class Reminders ===
 notificationSchema.statics.createClassReminders = async function(classSchedule, minutesBefore) {
-  const notifications = [];
+  const recipients = (classSchedule.students || [])
+    .filter(s => s?.user?._id)
+    .map(s => s.user._id);
+  if (recipients.length === 0) return [];
 
-  // Iterate through all students in the class
-  for (const student of classSchedule.students) {
-    // Check if we already sent this specific reminder to this student
-    const exists = await this.findOne({
-      recipient: student.user._id, // Assumes student populated with user
+  // One query to find who already got this reminder (was a findOne per student)
+  const existing = await this.find({
+    relatedClass: classSchedule._id,
+    type: "class_reminder",
+    recipient: { $in: recipients },
+  }).select("recipient").lean();
+  const alreadySent = new Set(existing.map(n => n.recipient.toString()));
+
+  const notifications = recipients
+    .filter(id => !alreadySent.has(id.toString()))
+    .map(id => ({
+      recipient: id,
+      recipientType: 'student',
+      title: 'Class Reminder',
+      message: `Your class "${classSchedule.subject}" starts in ${minutesBefore} minutes.`,
+      type: 'class_reminder',
       relatedClass: classSchedule._id,
-      type: "class_reminder",
-      // Optional: Check if created recently to allow re-sending if modified? 
-      // For now, unique per class per student.
-    });
-
-    if (!exists) {
-      notifications.push({
-        recipient: student.user._id,
-        recipientType: 'student',
-        title: 'Class Reminder',
-        message: `Your class "${classSchedule.subject}" starts in ${minutesBefore} minutes.`,
-        type: 'class_reminder',
-        relatedClass: classSchedule._id,
-        priority: 'high',
-        data: {
-          classId: classSchedule._id.toString(),
-          screen: 'ClassDetails'
-        }
-      });
-    }
-  }
+      priority: 'high',
+      data: {
+        classId: classSchedule._id.toString(),
+        screen: 'ClassDetails'
+      }
+    }));
 
   if (notifications.length > 0) {
     return await this.insertMany(notifications);

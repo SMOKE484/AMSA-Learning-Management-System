@@ -6,6 +6,80 @@ import Notification from '../models/notification.js';
 const expo = new Expo();
 
 /**
+ * Remove a push token from any user that holds it (device uninstalled the app
+ * or the token was rotated). Prevents wasting sends on dead tokens forever.
+ */
+const removeDeadToken = async (token) => {
+  try {
+    await User.updateMany({ pushToken: token }, { $set: { pushToken: null } });
+    console.log(`🧹 Removed dead push token ${token.slice(0, 24)}…`);
+  } catch (err) {
+    console.error('Failed to remove dead push token:', err);
+  }
+};
+
+/**
+ * Central push sender: chunks messages, sends them, and checks delivery
+ * receipts ~15 minutes later so DeviceNotRegistered tokens get cleaned up.
+ * All existing send functions route through this.
+ */
+export const sendPushMessages = async (messages) => {
+  if (!messages || messages.length === 0) return 0;
+
+  const tickets = []; // { id, token }
+  const chunks = expo.chunkPushNotifications(messages);
+  for (const chunk of chunks) {
+    try {
+      const chunkTickets = await expo.sendPushNotificationsAsync(chunk);
+      chunkTickets.forEach((ticket, i) => {
+        const token = chunk[i]?.to;
+        if (ticket.status === 'error') {
+          if (ticket.details?.error === 'DeviceNotRegistered' && token) {
+            removeDeadToken(token);
+          } else {
+            console.error('Push ticket error:', ticket.message);
+          }
+        } else if (ticket.id) {
+          tickets.push({ id: ticket.id, token });
+        }
+      });
+    } catch (error) {
+      console.error('Error sending notification chunk:', error);
+    }
+  }
+
+  // Check receipts after Expo has had time to deliver (fire-and-forget)
+  if (tickets.length > 0) {
+    const timer = setTimeout(() => checkPushReceipts(tickets), 15 * 60 * 1000);
+    timer.unref?.(); // don't keep the process alive for this
+  }
+
+  return messages.length;
+};
+
+const checkPushReceipts = async (tickets) => {
+  try {
+    const tokenByTicketId = new Map(tickets.map(t => [t.id, t.token]));
+    const idChunks = expo.chunkPushNotificationReceiptIds([...tokenByTicketId.keys()]);
+    for (const ids of idChunks) {
+      const receipts = await expo.getPushNotificationReceiptsAsync(ids);
+      for (const [id, receipt] of Object.entries(receipts)) {
+        if (receipt.status === 'error') {
+          const token = tokenByTicketId.get(id);
+          if (receipt.details?.error === 'DeviceNotRegistered' && token) {
+            await removeDeadToken(token);
+          } else {
+            console.error('Push receipt error:', receipt.message);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Push receipt check error:', error);
+  }
+};
+
+/**
  * Helper to get tokens for a list of student IDs
  */
 const getTokensForStudents = async (studentIds) => {
@@ -78,14 +152,7 @@ export const sendClassNotification = async (studentIds, classDetails) => {
     });
 
     if (messages.length > 0) {
-      const chunks = expo.chunkPushNotifications(messages);
-      for (const chunk of chunks) {
-        try {
-          await expo.sendPushNotificationsAsync(chunk);
-        } catch (error) {
-          console.error('Error sending notification chunk:', error);
-        }
-      }
+      await sendPushMessages(messages);
       console.log(`✅ Class notifications sent to ${studentTokens.length} students and ${parentTokens.length} parents.`);
     }
   } catch (error) {
@@ -110,10 +177,7 @@ export const sendCheckInAvailableNotification = async (studentIds, classDetails)
       priority: 'high'
     }));
 
-    const chunks = expo.chunkPushNotifications(messages);
-    for (const chunk of chunks) {
-      await expo.sendPushNotificationsAsync(chunk);
-    }
+    await sendPushMessages(messages);
     console.log(`✅ Check-in alerts sent to ${pushTokens.length} students.`);
   } catch (error) {
     console.error('❌ Check-in Notification Error:', error);
@@ -136,10 +200,7 @@ export const sendNoteNotification = async (studentIds, noteDetails) => {
       data: { noteId: noteDetails._id, screen: 'Notes' },
     }));
 
-    const chunks = expo.chunkPushNotifications(messages);
-    for (const chunk of chunks) {
-      await expo.sendPushNotificationsAsync(chunk);
-    }
+    await sendPushMessages(messages);
     console.log(`✅ Note notifications sent to ${studentTokens.length} students.`);
   } catch (error) {
     console.error('❌ Note Notification Error:', error);
@@ -179,10 +240,7 @@ export const sendMarksNotification = async (studentIds, assessmentDetails) => {
     });
 
     if (messages.length > 0) {
-      const chunks = expo.chunkPushNotifications(messages);
-      for (const chunk of chunks) {
-        await expo.sendPushNotificationsAsync(chunk);
-      }
+      await sendPushMessages(messages);
       console.log(`✅ Marks notifications sent to ${studentTokens.length} students and ${parentTokens.length} parents.`);
     }
   } catch (error) {
@@ -234,10 +292,7 @@ export const sendAttendanceConfirmation = async (studentId, classDetails, checkI
     }));
 
     // 5. Send
-    const chunks = expo.chunkPushNotifications(messages);
-    for (const chunk of chunks) {
-      await expo.sendPushNotificationsAsync(chunk);
-    }
+    await sendPushMessages(messages);
     console.log(`✅ Parent attendance alerts sent for ${student.user.name}`);
 
   } catch (error) {
@@ -292,14 +347,57 @@ export const sendAbsentAlert = async (studentId, classDetails) => {
     }));
 
     // 5. Send
-    const chunks = expo.chunkPushNotifications(messages);
-    for (const chunk of chunks) {
-      await expo.sendPushNotificationsAsync(chunk);
-    }
+    await sendPushMessages(messages);
     console.log(`⚠️ Sent absent alert to parents of ${student.user.name}`);
 
   } catch (error) {
     console.error('❌ Absent Notification Error:', error);
+  }
+};
+
+/**
+ * 6b. Send "Absent Alert" for MANY students in one pass (used by the cron job)
+ * One DB query + one chunked push send instead of a query/send per student.
+ */
+export const sendAbsentAlertsBatch = async (studentIds, classDetails) => {
+  try {
+    if (!studentIds || studentIds.length === 0) return;
+
+    const students = await Student.find({ _id: { $in: studentIds } })
+      .populate('user', 'name')
+      .populate('parents', 'pushToken');
+
+    const startTime = classDetails.classStartTime || classDetails.startTime || new Date();
+    const timeString = new Date(startTime).toLocaleTimeString('en-ZA', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    const messages = [];
+    for (const student of students) {
+      if (!student.parents?.length) continue;
+      for (const parent of student.parents) {
+        if (parent.pushToken && Expo.isExpoPushToken(parent.pushToken)) {
+          messages.push({
+            to: parent.pushToken,
+            sound: 'default',
+            title: 'Absent Alert ⚠️',
+            body: `Urgent: ${student.user?.name || 'Your child'} did not sign the register for ${classDetails.subject} (${timeString}).`,
+            data: { screen: 'ChildSchedule', studentId: student._id },
+            priority: 'high',
+            channelId: 'default',
+          });
+        }
+      }
+    }
+
+    if (messages.length === 0) return;
+
+    await sendPushMessages(messages);
+    console.log(`⚠️ Sent ${messages.length} absent alerts for ${students.length} students`);
+  } catch (error) {
+    console.error('❌ Batch Absent Notification Error:', error);
   }
 };
 
@@ -350,10 +448,7 @@ export const sendManualAttendanceNotification = async (studentId, classDetails, 
 
     if (messages.length === 0) return;
 
-    const chunks = expo.chunkPushNotifications(messages);
-    for (const chunk of chunks) {
-      await expo.sendPushNotificationsAsync(chunk);
-    }
+    await sendPushMessages(messages);
     console.log(`✅ Manual attendance notifications sent for ${student.user?.name} (${statusLabel})`);
   } catch (error) {
     console.error('❌ Manual Attendance Notification Error:', error);
@@ -393,10 +488,7 @@ export const sendBulkNotifications = async (notifications) => {
     });
 
     if (messages.length > 0) {
-      const chunks = expo.chunkPushNotifications(messages);
-      for (const chunk of chunks) {
-        await expo.sendPushNotificationsAsync(chunk);
-      }
+      await sendPushMessages(messages);
       console.log(`🚀 Sent ${messages.length} bulk notifications.`);
     }
 
@@ -425,16 +517,13 @@ export const sendWeeklyReport = async (parent, summaryMessage, weekStart) => {
     });
 
     if (parent.pushToken && Expo.isExpoPushToken(parent.pushToken)) {
-      const chunks = expo.chunkPushNotifications([{
+      await sendPushMessages([{
         to:    parent.pushToken,
         sound: 'default',
         title,
         body:  "Your children's weekly activity report is ready. Tap to view.",
         data:  { screen: 'Attendance' },
       }]);
-      for (const chunk of chunks) {
-        await expo.sendPushNotificationsAsync(chunk);
-      }
     }
 
     console.log(`📊 Weekly report sent to parent ${parent._id}`);
@@ -474,12 +563,14 @@ export const processPendingNotifications = async () => {
 
 // Export Object
 export const NotificationService = {
+  sendPushMessages,
   sendClassNotification,
   sendCheckInAvailableNotification,
   sendNoteNotification,
   sendMarksNotification,
   sendAttendanceConfirmation,
   sendAbsentAlert,
+  sendAbsentAlertsBatch,
   sendManualAttendanceNotification,
   sendBulkNotifications,
   sendWeeklyReport,

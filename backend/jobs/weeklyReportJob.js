@@ -23,45 +23,69 @@ export class WeeklyReportJob {
     const now = new Date();
     const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const parents = await User.find({ role: 'parent' });
+    // Load every student with parents once, then the week's attendance and
+    // marks in two aggregations grouped by student (was 2 queries per child).
+    const students = await Student.find({ parents: { $exists: true, $ne: [] } })
+      .populate('user', 'name')
+      .select('user grade parents')
+      .lean();
+    if (!students.length) return;
+
+    const studentIds = students.map(s => s._id);
+
+    const [attendanceByStudent, marksByStudent] = await Promise.all([
+      Attendance.aggregate([
+        { $match: { student: { $in: studentIds }, createdAt: { $gte: weekStart, $lte: now } } },
+        {
+          $group: {
+            _id: '$student',
+            total: { $sum: 1 },
+            present: { $sum: { $cond: [{ $eq: ['$status', 'present'] }, 1, 0] } },
+          },
+        },
+      ]),
+      Mark.aggregate([
+        { $match: { student: { $in: studentIds }, createdAt: { $gte: weekStart, $lte: now } } },
+        {
+          $group: {
+            _id: '$student',
+            marks: { $push: { subject: '$subject', score: '$score', total: '$total' } },
+          },
+        },
+      ]),
+    ]);
+
+    const attMap = new Map(attendanceByStudent.map(a => [a._id.toString(), a]));
+    const marksMap = new Map(marksByStudent.map(m => [m._id.toString(), m.marks]));
+
+    // Group child summary lines by parent
+    const linesByParent = new Map();
+    for (const child of students) {
+      const att = attMap.get(child._id.toString()) || { total: 0, present: 0 };
+      const rate = att.total > 0 ? Math.round((att.present / att.total) * 100) : 0;
+      const marks = marksMap.get(child._id.toString()) || [];
+      const marksLine = marks.length > 0
+        ? marks.map(m => `${m.subject}: ${Math.round((m.score / m.total) * 100)}%`).join(', ')
+        : 'No new grades';
+
+      const line = `${child.user?.name || 'Student'} (${child.grade}): ${att.present}/${att.total} classes (${rate}%) — ${marksLine}`;
+      for (const parentId of child.parents) {
+        const key = parentId.toString();
+        if (!linesByParent.has(key)) linesByParent.set(key, []);
+        linesByParent.get(key).push(line);
+      }
+    }
+
+    const parents = await User.find({ _id: { $in: [...linesByParent.keys()] }, role: 'parent' })
+      .select('pushToken')
+      .lean();
     console.log(`📊 Weekly report: processing ${parents.length} parents`);
 
     for (const parent of parents) {
       try {
-        const children = await Student.find({ parents: parent._id }).populate('user', 'name');
-        if (!children.length) continue;
-
-        const childLines = [];
-
-        for (const child of children) {
-          const [attendance, marks] = await Promise.all([
-            Attendance.find({
-              student: child._id,
-              createdAt: { $gte: weekStart, $lte: now },
-            }).populate('class', 'subject'),
-            Mark.find({
-              student: child._id,
-              createdAt: { $gte: weekStart, $lte: now },
-            }),
-          ]);
-
-          const present = attendance.filter(a => a.status === 'present').length;
-          const absent  = attendance.filter(a => a.status === 'absent').length;
-          const late    = attendance.filter(a => a.status === 'late').length;
-          const total   = attendance.length;
-          const rate    = total > 0 ? Math.round((present / total) * 100) : 0;
-
-          const marksLine = marks.length > 0
-            ? marks.map(m => `${m.subject}: ${Math.round((m.score / m.total) * 100)}%`).join(', ')
-            : 'No new grades';
-
-          childLines.push(
-            `${child.user.name} (${child.grade}): ${present}/${total} classes (${rate}%) — ${marksLine}`
-          );
-        }
-
-        const fullMessage = childLines.join('\n');
-        await NotificationService.sendWeeklyReport(parent, fullMessage, weekStart);
+        const lines = linesByParent.get(parent._id.toString());
+        if (!lines?.length) continue;
+        await NotificationService.sendWeeklyReport(parent, lines.join('\n'), weekStart);
       } catch (error) {
         console.error(`❌ Failed weekly report for parent ${parent._id}:`, error);
       }

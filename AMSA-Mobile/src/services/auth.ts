@@ -6,23 +6,23 @@ import { User } from '../types';
 export const authService = {
   async login(email: string, password: string) {
     try {
-      console.log('🔐 Attempting login with:', { email });
+      if (__DEV__) console.log('🔐 Attempting login with:', { email });
 
       const response = await api.post('/auth/login', { email, password });
 
-      console.log('✅ Login response:', response.data);
+      if (__DEV__) console.log('✅ Login response:', response.data);
 
       if (response.data.token && response.data.user) {
         await AsyncStorage.setItem('token', response.data.token);
         await AsyncStorage.setItem('user', JSON.stringify(response.data.user));
-        console.log('💾 Token and user saved to storage');
+        if (__DEV__) console.log('💾 Token and user saved to storage');
       } else {
-        console.warn('⚠️ No token or user in response');
+        if (__DEV__) console.warn('⚠️ No token or user in response');
       }
 
       return response.data;
     } catch (error: any) {
-      console.error('❌ Login service error:', {
+      if (__DEV__) console.error('❌ Login service error:', {
         status: error.response?.status,
         data: error.response?.data,
         message: error.message
@@ -32,7 +32,7 @@ export const authService = {
   },
 
   async logout() {
-    console.log('🚪 Logging out...');
+    if (__DEV__) console.log('🚪 Logging out...');
     await AsyncStorage.multiRemove(['token', 'user']);
   },
 
@@ -40,10 +40,10 @@ export const authService = {
     try {
       const userStr = await AsyncStorage.getItem('user');
       const user = userStr ? JSON.parse(userStr) : null;
-      console.log('👤 Current user from storage:', user);
+      if (__DEV__) console.log('👤 Current user from storage:', user);
       return user;
     } catch (error) {
-      console.error('❌ Error getting current user:', error);
+      if (__DEV__) console.error('❌ Error getting current user:', error);
       return null;
     }
   },
@@ -52,10 +52,10 @@ export const authService = {
     try {
       const token = await AsyncStorage.getItem('token');
       const isAuth = !!token;
-      console.log('🔍 Auth check - token exists:', isAuth);
+      if (__DEV__) console.log('🔍 Auth check - token exists:', isAuth);
       return isAuth;
     } catch (error) {
-      console.error('❌ Error checking authentication:', error);
+      if (__DEV__) console.error('❌ Error checking authentication:', error);
       return false;
     }
   },

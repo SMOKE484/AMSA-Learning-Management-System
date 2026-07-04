@@ -1,5 +1,6 @@
 // src/screens/student/NotesScreen.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Alert, RefreshControl, ActivityIndicator,
@@ -120,7 +121,7 @@ const StudentNotesScreen = () => {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { loadNotes(); }, []);
+  useFocusEffect(useCallback(() => { loadNotes(); }, []));
 
   useEffect(() => {
     let f = notes;

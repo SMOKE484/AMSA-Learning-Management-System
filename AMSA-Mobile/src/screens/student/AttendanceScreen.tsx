@@ -1,5 +1,6 @@
 // src/screens/student/AttendanceScreen.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, RefreshControl,
@@ -117,7 +118,7 @@ const StudentAttendanceScreen = () => {
     }
   };
 
-  useEffect(() => { loadAttendance(); }, []);
+  useFocusEffect(useCallback(() => { loadAttendance(); }, []));
 
   const onRefresh = async () => {
     setRefreshing(true);

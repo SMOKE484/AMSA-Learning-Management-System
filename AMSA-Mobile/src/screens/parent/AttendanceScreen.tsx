@@ -1,5 +1,6 @@
 // src/screens/parent/AttendanceScreen.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, RefreshControl, Image,
@@ -120,7 +121,8 @@ const ParentAttendanceScreen = () => {
   const loadRecords = async () => {
     try {
       const res = await parentService.getChildrenAttendanceRecords();
-      setRecords(res.records || []);
+      // Drop records whose student/user link was deleted — rendering them would crash
+      setRecords((res.records || []).filter((r: any) => r?.student?.user));
     } catch (error: any) {
       if (error.response?.status === 401) {
         Alert.alert('Session Expired', 'Please login again');
@@ -133,7 +135,7 @@ const ParentAttendanceScreen = () => {
     }
   };
 
-  useEffect(() => { loadRecords(); }, []);
+  useFocusEffect(useCallback(() => { loadRecords(); }, []));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -145,7 +147,7 @@ const ParentAttendanceScreen = () => {
   const children = useMemo(() => {
     const seen = new Map<string, string>();
     records.forEach(r => {
-      if (!seen.has(r.student._id)) seen.set(r.student._id, r.student.user.name);
+      if (r.student && !seen.has(r.student._id)) seen.set(r.student._id, r.student.user?.name || 'Unknown');
     });
     return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
   }, [records]);
@@ -172,7 +174,7 @@ const ParentAttendanceScreen = () => {
   const groupedByChild = useMemo(() => {
     const map: Record<string, ChildAttendanceRecord[]> = {};
     filteredRecords.forEach(r => {
-      const name = r.student.user.name;
+      const name = r.student?.user?.name || 'Unknown';
       if (!map[name]) map[name] = [];
       map[name].push(r);
     });

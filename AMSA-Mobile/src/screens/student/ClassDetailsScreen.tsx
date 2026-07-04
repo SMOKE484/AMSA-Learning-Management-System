@@ -323,7 +323,7 @@ const ClassDetailsScreen = () => {
           )}
           {cls?.room && (
             <View style={s.row}>
-              <Icon name="location" size={18} color={BRAND.textSecondary} />
+              <Icon name="location-outline" size={18} color={BRAND.textSecondary} />
               <Text style={s.rowText}>{cls.room}</Text>
             </View>
           )}

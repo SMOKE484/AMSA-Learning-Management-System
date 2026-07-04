@@ -73,6 +73,9 @@ export const getSchedules = async (req, res) => {
 
     // Enforce role-based scope — users can only see schedules relevant to them
     if (req.role === "student") {
+      // Without this guard an undefined studentId is stripped from the filter
+      // and the student would see every class in the school.
+      if (!req.studentId) return res.status(403).json({ message: "Student profile not found" });
       filter.students = req.studentId;
     } else if (req.role === "tutor") {
       const tutor = await Tutor.findOne({ user: req.userId });
@@ -112,6 +115,14 @@ export const updateSchedule = async (req, res) => {
     const classSchedule = await ClassSchedule.findById(id);
     if (!classSchedule) return res.status(404).json({ message: "Class not found" });
 
+    // Tutors may only modify their own classes
+    if (req.role === "tutor") {
+      const tutorObj = await Tutor.findOne({ user: req.userId }).select("_id");
+      if (!tutorObj || classSchedule.tutor.toString() !== tutorObj._id.toString()) {
+        return res.status(403).json({ message: "You can only update your own classes" });
+      }
+    }
+
     if (updates.subject || updates.grade) {
        // Re-run auto assign logic if needed
        // ... (Simplified: assume frontend handles this or updates students array)
@@ -131,7 +142,19 @@ export const updateSchedule = async (req, res) => {
 export const deleteSchedule = async (req, res) => {
     try {
         const { id } = req.params;
+        const classSchedule = await ClassSchedule.findById(id);
+        if (!classSchedule) return res.status(404).json({ message: "Class not found" });
+
+        // Tutors may only delete their own classes
+        if (req.role === "tutor") {
+          const tutorObj = await Tutor.findOne({ user: req.userId }).select("_id");
+          if (!tutorObj || classSchedule.tutor.toString() !== tutorObj._id.toString()) {
+            return res.status(403).json({ message: "You can only delete your own classes" });
+          }
+        }
+
         await ClassSchedule.findByIdAndDelete(id);
+        await Attendance.deleteMany({ class: id });
         res.json({ message: "Class deleted" });
     } catch (error) { res.status(500).json({ message: error.message }); }
 };

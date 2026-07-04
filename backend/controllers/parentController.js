@@ -37,10 +37,21 @@ export const getMyChildrenAttendance = async (req, res) => {
     if (!children.length) return res.status(200).json({ rate: 0, total: 0, present: 0 });
 
     const childrenIds = children.map(c => c._id);
-    const records = await Attendance.find({ student: { $in: childrenIds } });
 
-    const total = records.length;
-    const present = records.filter(r => r.status === 'present' || r.status === 'late').length;
+    // Count in the database instead of loading every attendance document
+    const [counts] = await Attendance.aggregate([
+      { $match: { student: { $in: childrenIds } } },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          present: { $sum: { $cond: [{ $in: ["$status", ["present", "late"]] }, 1, 0] } },
+        },
+      },
+    ]);
+
+    const total = counts?.total ?? 0;
+    const present = counts?.present ?? 0;
     const rate = total > 0 ? Math.round((present / total) * 100) : 0;
 
     res.status(200).json({ rate, total, present });
@@ -56,12 +67,17 @@ export const getMyChildrenAttendanceRecords = async (req, res) => {
     if (!children.length) return res.status(200).json({ records: [] });
 
     const childrenIds = children.map(c => c._id);
-    const records = await Attendance.find({ student: { $in: childrenIds } })
-      .populate({ path: 'student', populate: { path: 'user', select: 'name' } })
-      .populate({ path: 'class', select: 'subject scheduledDate grade' })
-      .sort({ createdAt: -1 });
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 100);
 
-    res.status(200).json({ records });
+    const records = await Attendance.find({ student: { $in: childrenIds } })
+      .populate({ path: 'student', select: 'user grade', populate: { path: 'user', select: 'name' } })
+      .populate({ path: 'class', select: 'subject scheduledDate grade' })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.status(200).json({ records, page, limit });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -80,29 +96,18 @@ export const getMyChildrenMarks = async (req, res) => {
     // 2. Extract just the IDs
     const childrenIds = children.map((child) => child._id);
 
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 100, 1), 200);
+
     // 3. Find all marks where the 'student' is in our list of children IDs
     const marks = await Mark.find({ student: { $in: childrenIds } })
-      .populate("student", "user") // Populate student info
-      .populate({
-        // Nested populate to get student's name
-        path: "student",
-        populate: {
-          path: "user",
-          select: "name",
-        },
-      })
-      .populate("tutor", "user") // Populate tutor info
-      .populate({
-        // Nested populate to get tutor's name
-        path: "tutor",
-        populate: {
-          path: "user",
-          select: "name",
-        },
-      })
-      .sort({ createdAt: -1 });
+      .populate({ path: "student", select: "user grade", populate: { path: "user", select: "name" } })
+      .populate({ path: "tutor", select: "user", populate: { path: "user", select: "name" } })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
 
-    res.status(200).json({ marks });
+    res.status(200).json({ marks, page, limit });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

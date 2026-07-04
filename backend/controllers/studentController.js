@@ -1,6 +1,7 @@
 import Student from "../models/student.js";
 import Note from "../models/notes.js";
 import Mark from "../models/mark.js";
+import Attendance from "../models/attendance.js";
 import { invalidateStudentCache } from "../middleware/cacheMiddleware.js";
 
 // Get student profile
@@ -34,7 +35,12 @@ export const getAttendance = async (req, res) => {
     const student = await Student.findOne({ user: req.userId });
     if (!student) return res.status(404).json({ message: "Student not found" });
 
-    res.json({ attendance: student.attendance || [] });
+    const attendance = await Attendance.find({ student: student._id })
+      .populate("class", "title subject scheduledDate")
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    res.json({ attendance });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -50,8 +56,7 @@ export const getStudentNotes = async (req, res) => {
       subject: { $in: student.subjects },
       grade: student.grade
     })
-      .populate("tutor", "user")
-      .populate("tutor.user", "name")
+      .populate({ path: "tutor", select: "user", populate: { path: "user", select: "name" } })
       .sort({ createdAt: -1 });
 
     res.status(200).json({ notes });
@@ -68,12 +73,16 @@ export const getMyMarks = async (req, res) => {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    const marks = await Mark.find({ student: student._id })
-      .populate("tutor", "user")
-      .populate("tutor.user", "name")
-      .sort({ createdAt: -1 });
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 100, 1), 200);
 
-    res.status(200).json({ marks });
+    const marks = await Mark.find({ student: student._id })
+      .populate({ path: "tutor", select: "user", populate: { path: "user", select: "name" } })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.status(200).json({ marks, page, limit });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

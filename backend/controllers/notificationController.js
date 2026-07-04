@@ -304,7 +304,9 @@ export const sendAnnouncement = async (req, res) => {
     }));
 
     const created = await Notification.insertMany(notificationDocs);
-    await NotificationService.sendBulkNotifications(created);
+    // Respond immediately; pushing to the whole school can take a while
+    NotificationService.sendBulkNotifications(created)
+      .catch(err => console.error('Announcement push error:', err));
 
     res.json({
       message: `Announcement sent to ${created.length} recipient(s)`,

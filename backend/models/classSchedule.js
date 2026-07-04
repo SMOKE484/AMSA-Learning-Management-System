@@ -14,6 +14,7 @@ const classScheduleSchema = new mongoose.Schema({
   startTime: { type: String, required: true, match: /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/ },
   endTime: { type: String, required: true, match: /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/ },
   checkInNotificationSent: {  type: Boolean, default: false },
+  reminderSent: { type: Boolean, default: false },
   
   classStartTime: Date,
   classEndTime: Date,
@@ -31,6 +32,14 @@ const classScheduleSchema = new mongoose.Schema({
   autoAssigned: { type: Boolean, default: false },
   maxStudents: { type: Number, default: 30, min: 1 }
 }, { timestamps: true });
+
+// User-facing queries
+classScheduleSchema.index({ students: 1, scheduledDate: 1 });
+classScheduleSchema.index({ tutor: 1, scheduledDate: 1 });
+// Cron job scans (every 5 minutes)
+classScheduleSchema.index({ status: 1, classStartTime: 1 });
+classScheduleSchema.index({ checkInEnd: 1, autoMarkAbsent: 1 });
+classScheduleSchema.index({ checkOutEnd: 1, status: 1 });
 
 // Virtuals
 classScheduleSchema.virtual('classStartDateTime').get(function() {
@@ -92,8 +101,7 @@ classScheduleSchema.statics.findUpcomingForStudent = function(studentId, days = 
     students: studentId,
     scheduledDate: { $gte: startDate, $lte: endDate },
     status: { $in: ['scheduled', 'ongoing'] }
-  }).populate('tutor', 'user')
-    .populate('tutor.user', 'name email')
+  }).populate({ path: 'tutor', select: 'user', populate: { path: 'user', select: 'name email' } })
     .sort({ scheduledDate: 1, startTime: 1 });
 };
 

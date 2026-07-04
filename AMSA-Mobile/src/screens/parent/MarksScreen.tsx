@@ -1,5 +1,5 @@
 // src/screens/parent/MarksScreen.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, RefreshControl, Image,
@@ -7,7 +7,7 @@ import {
 import { getAvatarUrl } from '../../utils/avatarUtils';
 import { parentService } from '../../services/parent';
 import { useAuth } from '../../context/AuthContext';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useFocusEffect } from '@react-navigation/native';
 import { Icon } from '../../components/Icon';
 import BouncingDotsLoader from '../../components/BouncingDotsLoader';
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
@@ -103,7 +103,8 @@ const ParentMarksScreen = () => {
   const loadMarks = async () => {
     try {
       const response = await parentService.getChildrenMarks();
-      setMarks(response.marks || []);
+      // Drop records whose student/user link was deleted — rendering them would crash
+      setMarks((response.marks || []).filter((m: any) => m?.student?.user));
     } catch (error: any) {
       if (error.response?.status === 401) {
         Alert.alert('Session Expired', 'Please login again');
@@ -122,11 +123,11 @@ const ParentMarksScreen = () => {
     setRefreshing(false);
   };
 
-  useEffect(() => { loadMarks(); }, []);
+  useFocusEffect(useCallback(() => { loadMarks(); }, []));
 
   const children = Array.from(new Set(marks.map(m => m.student._id))).map(id => {
     const mark = marks.find(m => m.student._id === id);
-    return { id, name: mark?.student.user.name || 'Unknown' };
+    return { id, name: mark?.student?.user?.name || 'Unknown' };
   });
 
   const filteredMarks = selectedChild === 'all'
@@ -134,7 +135,7 @@ const ParentMarksScreen = () => {
     : marks.filter(m => m.student._id === selectedChild);
 
   const marksByChild = filteredMarks.reduce((acc: any, mark) => {
-    const childName = mark.student.user.name;
+    const childName = mark.student?.user?.name || 'Unknown';
     if (!acc[childName]) acc[childName] = {};
     if (!acc[childName][mark.subject]) acc[childName][mark.subject] = [];
     acc[childName][mark.subject].push(mark);

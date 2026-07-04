@@ -42,3 +42,7 @@ yarn-error.*
 
 # text files
 *.txt
+
+# Firebase config — contains API keys, never commit
+google-services.json
+GoogleService-Info.plist

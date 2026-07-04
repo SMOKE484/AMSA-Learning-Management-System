@@ -1,5 +1,6 @@
 // src/services/student.ts
 import { api } from './api';
+import { toLocalDateString } from '../utils/formatting';
 
 export interface Note {
   _id: string;
@@ -146,7 +147,7 @@ export const studentService = {
   },
 
   async getTodaySchedule(): Promise<{ schedules: ClassSchedule[] }> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = toLocalDateString(new Date());
     const response = await api.get('/schedules', {
       params: {
         startDate: today,
@@ -164,8 +165,8 @@ export const studentService = {
     
     const response = await api.get('/schedules', {
       params: {
-        startDate: today.toISOString().split('T')[0],
-        endDate: weekFromNow.toISOString().split('T')[0],
+        startDate: toLocalDateString(today),
+        endDate: toLocalDateString(weekFromNow),
         status: 'scheduled'
       }
     });

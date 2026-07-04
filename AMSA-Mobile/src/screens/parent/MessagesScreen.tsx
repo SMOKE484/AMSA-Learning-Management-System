@@ -98,8 +98,6 @@ const ParentMessagesScreen = () => {
   const [sending, setSending]                 = useState(false);
 
   const listRef = useRef<FlatList>(null);
-  const msgHandlerRef = useRef<((msg: Message) => void) | null>(null);
-  const convHandlerRef = useRef<((data: any) => void) | null>(null);
   const BOTTOM_PAD = TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_OFFSET + 16;
 
   // ── Load conversations ────────────────────────────────────────────────
@@ -123,17 +121,25 @@ const ParentMessagesScreen = () => {
     setRefreshing(false);
   };
 
-  // ── Open thread ──────────────────────────────────────────────────────
-  const openThread = async (conv: Conversation) => {
-    setSelectedConv(conv);
-    setView('thread');
-    setLoadingThread(true);
-    setMessages([]);
-    msgHandlerRef.current = (msg: Message) => {
+  // ── Live socket listeners for the open thread ────────────────────────
+  // Registered/removed in an effect so they're always cleaned up, even if
+  // the screen unmounts while a thread is open (back gesture, deep link).
+  useEffect(() => {
+    if (view !== 'thread' || !selectedConv) return;
+    const convId = selectedConv._id;
+
+    const onNewMessage = (msg: Message) => {
       setMessages(prev => prev.some(m => m._id === msg._id) ? prev : [...prev, msg]);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+      // We're looking at the thread, so anything that arrives is read
+      if (msg.senderRole !== 'parent') {
+        messageService.markRead(convId).catch(() => {});
+        setConversations(prev =>
+          prev.map(c => c._id === convId ? { ...c, unreadByParent: 0 } : c)
+        );
+      }
     };
-    convHandlerRef.current = (data: any) => {
+    const onConvUpdated = (data: any) => {
       setConversations(prev =>
         prev.map(c => c._id === data.conversationId
           ? { ...c, lastMessage: data.lastMessage, lastMessageAt: data.lastMessageAt, unreadByParent: data.unreadByParent }
@@ -141,9 +147,24 @@ const ParentMessagesScreen = () => {
         )
       );
     };
-    socketService.joinConversation(conv._id);
-    socketService.onMessage(msgHandlerRef.current);
-    socketService.onConversationUpdated(convHandlerRef.current);
+
+    socketService.joinConversation(convId);
+    socketService.onMessage(onNewMessage);
+    socketService.onConversationUpdated(onConvUpdated);
+
+    return () => {
+      socketService.leaveConversation(convId);
+      socketService.off('message:new', onNewMessage);
+      socketService.off('conversation:updated', onConvUpdated);
+    };
+  }, [view, selectedConv?._id]);
+
+  // ── Open thread ──────────────────────────────────────────────────────
+  const openThread = async (conv: Conversation) => {
+    setSelectedConv(conv);
+    setView('thread');
+    setLoadingThread(true);
+    setMessages([]);
     try {
       const res = await messageService.getMessages(conv._id);
       setMessages(res.messages || []);
@@ -159,14 +180,8 @@ const ParentMessagesScreen = () => {
   };
 
   const closeThread = () => {
-    if (selectedConv) {
-      socketService.leaveConversation(selectedConv._id);
-      if (msgHandlerRef.current)  socketService.off('message:new',         msgHandlerRef.current);
-      if (convHandlerRef.current) socketService.off('conversation:updated', convHandlerRef.current);
-      msgHandlerRef.current  = null;
-      convHandlerRef.current = null;
-    }
     setView('list');
+    setSelectedConv(null);
   };
 
   // ── Send reply ───────────────────────────────────────────────────────

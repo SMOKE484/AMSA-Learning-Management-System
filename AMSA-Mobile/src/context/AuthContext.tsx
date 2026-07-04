@@ -1,5 +1,5 @@
 // src/context/AuthContext.tsx
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService } from '../services/auth';
@@ -38,21 +38,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAuthStatus = async () => {
     try {
-      console.log('🔍 Checking auth status...');
       const isAuth = await authService.isAuthenticated();
       if (isAuth) {
         const currentUser = await authService.getCurrentUser();
         const storedToken = await AsyncStorage.getItem('token');
         setUser(currentUser);
         setToken(storedToken);
-        console.log('✅ User authenticated:', currentUser);
         registerForPushNotificationsAsync().catch(() => {});
         if (storedToken) socketService.connect(storedToken);
-      } else {
-        console.log('❌ No user authenticated');
       }
     } catch (error) {
-      console.error('❌ Auth check error:', error);
+      if (__DEV__) console.error('❌ Auth check error:', error);
     } finally {
       setLoading(false);
     }
@@ -60,15 +56,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
-      console.log('👤 Login attempt for:', email);
       const data = await authService.login(email, password);
       setUser(data.user);
       setToken(data.token);
-      console.log('🎉 Login successful:', data.user);
       registerForPushNotificationsAsync().catch(() => {});
       socketService.connect(data.token);
     } catch (error: any) {
-      console.error('💥 Login context error:', error);
+      if (__DEV__) console.error('💥 Login context error:', error);
 
       if (error.response) {
         const message = error.response.data?.message || 'Login failed';
@@ -86,29 +80,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await authService.logout();
+    } catch (error) {
+      if (__DEV__) console.error('Logout error:', error);
+    } finally {
+      // Always clear local session state, even if storage cleanup failed
       socketService.disconnect();
       setUser(null);
       setToken(null);
-    } catch (error) {
-      console.error('Logout error:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     registerUnauthenticatedHandler(logout);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [logout]);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     token,
     loading,
     login,
     logout,
     isAuthenticated: !!user && !!token,
-  };
+  }), [user, token, loading, logout]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

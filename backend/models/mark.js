@@ -27,4 +27,8 @@ const markSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Marks are always fetched per student, newest first
+markSchema.index({ student: 1, createdAt: -1 });
+markSchema.index({ tutor: 1 });
+
 export default mongoose.model("Mark", markSchema);
