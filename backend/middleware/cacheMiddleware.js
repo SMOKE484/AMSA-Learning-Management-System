@@ -8,8 +8,10 @@ const isRedisAvailable = () => {
   );
 };
 
-// Generic cache middleware
-export const cache = (expireSeconds = 300) => {
+// Generic cache middleware. Responses are cached per user by default;
+// pass { shared: true } only for public routes whose response is identical
+// for every caller (e.g. academic config).
+export const cache = (expireSeconds = 300, { shared = false } = {}) => {
   return async (req, res, next) => {
     // Only cache GET requests
     if (req.method !== 'GET') {
@@ -21,7 +23,15 @@ export const cache = (expireSeconds = 300) => {
       return next();
     }
 
-    const key = `cache:${req.userId ?? 'anon'}:${req.originalUrl}`;
+    // Never share a cache entry between users: if auth hasn't populated
+    // req.userId, skip caching entirely rather than fall back to a shared key.
+    if (!shared && !req.userId) {
+      return next();
+    }
+
+    const key = shared
+      ? `cache:shared:${req.originalUrl}`
+      : `cache:${req.userId}:${req.originalUrl}`;
 
     try {
       // Try to get cached data

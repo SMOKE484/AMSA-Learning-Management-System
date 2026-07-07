@@ -21,7 +21,7 @@ import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
 import { BRAND, BrandPalette } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
 import { useTheme } from '../../context/ThemeContext';
-import { toLocalDateString } from '../../utils/formatting';
+import { toLocalDateString, pct } from '../../utils/formatting';
 
 // Accent-only maps — identical in both themes, safe as module-level constants
 const SUBJECT_COLORS: Record<string, string> = {
@@ -305,7 +305,7 @@ const StudentDashboardScreen = () => {
 
       const marks = marksData.marks || [];
       const avg = marks.length
-        ? Math.round(marks.reduce((s: number, m: any) => s + (m.score / m.total * 100), 0) / marks.length)
+        ? Math.round(marks.reduce((s: number, m: any) => s + pct(m.score, m.total), 0) / marks.length)
         : 0;
 
       setStats({

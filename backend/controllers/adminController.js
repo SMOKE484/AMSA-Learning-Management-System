@@ -7,7 +7,8 @@ import Attendance from "../models/attendance.js";
 import ClassSchedule from "../models/classSchedule.js";
 import Subject from "../models/subject.js";
 import bcrypt from "bcryptjs";
-import { invalidateTutorCache } from "../middleware/cacheMiddleware.js";
+import { invalidateTutorCache, invalidateMarksCache } from "../middleware/cacheMiddleware.js";
+import { validateMarkValues } from "../utils/markValidation.js";
 import { PREDEFINED_SUBJECTS, PREDEFINED_GRADES } from "../config/academicConfig.js";
 
 // Create Student with linked User
@@ -297,10 +298,12 @@ export const getAllMarks = async (req, res) => {
       .sort(sortOptions)
       .limit(Number(limit) || 100); // Prevent massive payloads
 
-    // 4. Calculate Statistics 
+    // 4. Calculate Statistics — mean of per-mark percentages, since raw
+    // scores aren't comparable across tests with different totals
     const totalMarks = marks.length;
-    const average = totalMarks > 0 
-      ? (marks.reduce((acc, curr) => acc + curr.score, 0) / totalMarks).toFixed(1) 
+    const average = totalMarks > 0
+      ? (marks.reduce((acc, curr) =>
+          acc + (curr.total > 0 ? (curr.score / curr.total) * 100 : 0), 0) / totalMarks).toFixed(1)
       : 0;
 
     res.json({ 
@@ -317,7 +320,11 @@ export const getAllMarks = async (req, res) => {
 export const deleteMark = async (req, res) => {
   try {
     const { markId } = req.params;
-    await Mark.findByIdAndDelete(markId);
+    const mark = await Mark.findByIdAndDelete(markId);
+    if (!mark) return res.status(404).json({ message: "Mark not found" });
+
+    await invalidateMarksCache();
+
     res.json({ message: "Mark deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -330,11 +337,19 @@ export const updateMark = async (req, res) => {
     const { markId } = req.params;
     const { score, total } = req.body;
 
-    const mark = await Mark.findByIdAndUpdate(
-      markId,
-      { score, total },
-      { new: true }
-    );
+    const mark = await Mark.findById(markId);
+    if (!mark) return res.status(404).json({ message: "Mark not found" });
+
+    const newScore = score ?? mark.score;
+    const newTotal = total ?? mark.total;
+    const validationError = validateMarkValues(newScore, newTotal);
+    if (validationError) return res.status(400).json({ message: validationError });
+
+    mark.score = newScore;
+    mark.total = newTotal;
+    await mark.save();
+
+    await invalidateMarksCache();
 
     res.json({ message: "Mark updated", mark });
   } catch (error) {

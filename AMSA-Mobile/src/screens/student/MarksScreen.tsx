@@ -13,7 +13,7 @@ import { Icon } from '../../components/Icon';
 import BouncingDotsLoader from '../../components/BouncingDotsLoader';
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
 import { GlassCard } from '../../components/GlassCard';
-import { getSubjectColor, getSubjectIcon, calculateGrade, getGradeColor } from '../../utils/formatting';
+import { getSubjectColor, getSubjectIcon, calculateGrade, getGradeColor, pct } from '../../utils/formatting';
 
 
 const makeStyles = (colors: BrandPalette) => StyleSheet.create({
@@ -120,7 +120,7 @@ const StudentMarksScreen = () => {
   const subjectAverages = Object.keys(marksBySubject).map(subject => {
     const subjectMarks = marksBySubject[subject];
     const average = subjectMarks.reduce((sum: number, m: Mark) =>
-      sum + (m.score / m.total * 100), 0) / subjectMarks.length;
+      sum + pct(m.score, m.total), 0) / subjectMarks.length;
     return {
       subject,
       average: Math.round(average),
@@ -238,7 +238,7 @@ const StudentMarksScreen = () => {
                             {new Date(test.createdAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </Text>
                         </View>
-                        <Text style={[s.testMark, { color }]}>{Math.round((test.score / test.total) * 100)}%</Text>
+                        <Text style={[s.testMark, { color }]}>{Math.round(pct(test.score, test.total))}%</Text>
                       </View>
                     ))}
                   </View>

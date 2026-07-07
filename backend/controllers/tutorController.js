@@ -10,6 +10,7 @@ import {
   invalidateStudentCache 
 } from "../middleware/cacheMiddleware.js";
 import { NotificationService } from "../utils/notificationService.js";
+import { validateMarkValues } from "../utils/markValidation.js";
 import path from "path";
 import { uploadToS3, deleteFromS3 } from "../utils/s3Service.js";
 
@@ -284,6 +285,15 @@ export const uploadMarks = async (req, res) => {
       });
     }
 
+    for (const m of marks) {
+      const validationError = validateMarkValues(m.score, m.total);
+      if (validationError) {
+        return res.status(400).json({
+          message: `Invalid mark for student ${m.studentId}: ${validationError}`,
+        });
+      }
+    }
+
     const createdMarks = await Mark.insertMany(
       marks.map((m) => ({
         student: m.studentId,
@@ -350,15 +360,23 @@ export const getTutorStudentMarks = async (req, res) => {
 export const updateTutorMark = async (req, res) => {
   try {
     const { markId } = req.params;
-    const { score } = req.body;
+    const { score, total } = req.body;
     const tutor = await Tutor.findOne({ user: req.userId });
 
     // Find mark and ensure this tutor owns it
     const mark = await Mark.findOne({ _id: markId, tutor: tutor._id });
     if (!mark) return res.status(404).json({ message: "Mark not found or unauthorized" });
 
-    mark.score = score;
+    const newScore = score ?? mark.score;
+    const newTotal = total ?? mark.total;
+    const validationError = validateMarkValues(newScore, newTotal);
+    if (validationError) return res.status(400).json({ message: validationError });
+
+    mark.score = newScore;
+    mark.total = newTotal;
     await mark.save();
+
+    await invalidateMarksCache();
 
     res.json({ message: "Mark updated", mark });
   } catch (error) {

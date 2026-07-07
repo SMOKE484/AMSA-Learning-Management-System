@@ -22,6 +22,7 @@ const UploadMarks = () => {
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [scores, setScores] = useState({});
+  const [submitting, setSubmitting] = useState(false);
   
   const { showSnackbar } = useSnackbar();
 
@@ -80,18 +81,53 @@ const UploadMarks = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return; // guard against double-click creating duplicate marks
 
     if (!commonDetails.subject || !commonDetails.testName || !commonDetails.total || !commonDetails.grade) {
       showSnackbar('Please fill in all test details: Grade, Subject, Test Name, and Total.', 'error');
       return;
     }
 
+    const total = Number(commonDetails.total);
+    if (!Number.isFinite(total) || total <= 0) {
+      showSnackbar('Total marks must be a number greater than 0.', 'error');
+      return;
+    }
+
+    const studentName = (student) => student.user?.name || student._id;
+
+    const invalidStudents = students.filter(student => {
+      const raw = scores[student._id];
+      if (raw === undefined || raw === '') return false; // blank is handled below
+      const score = Number(raw);
+      return !Number.isFinite(score) || score < 0 || score > total;
+    });
+    if (invalidStudents.length > 0) {
+      showSnackbar(
+        `Scores must be between 0 and ${total}. Please check: ${invalidStudents.map(studentName).join(', ')}`,
+        'error'
+      );
+      return;
+    }
+
+    // Blank scores are recorded as 0 — make sure that's intentional
+    const blankStudents = students.filter(
+      student => scores[student._id] === undefined || scores[student._id] === ''
+    );
+    if (blankStudents.length > 0) {
+      const confirmed = window.confirm(
+        `No score was entered for: ${blankStudents.map(studentName).join(', ')}.\n\n` +
+        `These students will be recorded as 0/${total}. Continue?`
+      );
+      if (!confirmed) return;
+    }
+
     const marks = students.map(student => ({
       studentId: student._id,
       score: Number(scores[student._id] || 0),
-      total: Number(commonDetails.total)
+      total
     }));
-    
+
     const dataToSubmit = {
       grade: commonDetails.grade,
       subject: commonDetails.subject,
@@ -99,6 +135,7 @@ const UploadMarks = () => {
       marks: marks
     };
 
+    setSubmitting(true);
     try {
       await api.post('/tutors/marks/upload', dataToSubmit);
       showSnackbar('Marks uploaded successfully!', 'success');
@@ -106,6 +143,8 @@ const UploadMarks = () => {
       setScores({});
     } catch (err) {
       showSnackbar(err.message || 'Failed to upload marks.', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -300,9 +339,9 @@ const UploadMarks = () => {
                   fontWeight: 600,
                   borderRadius: 2
                 }}
-                disabled={students.length === 0}
+                disabled={students.length === 0 || submitting}
               >
-                Upload All Marks
+                {submitting ? 'Uploading…' : 'Upload All Marks'}
               </Button>
             </Box>
           </Paper>

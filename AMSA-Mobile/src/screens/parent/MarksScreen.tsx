@@ -13,7 +13,7 @@ import BouncingDotsLoader from '../../components/BouncingDotsLoader';
 import { TAB_BAR_HEIGHT, TAB_BAR_BOTTOM_OFFSET } from '../../components/layout';
 import { BrandPalette } from '../../components/theme';
 import { GlassCard } from '../../components/GlassCard';
-import { calculateGrade, getGradeColor } from '../../utils/formatting';
+import { calculateGrade, getGradeColor, pct } from '../../utils/formatting';
 import { useTheme } from '../../context/ThemeContext';
 
 
@@ -26,7 +26,7 @@ interface ChildMark {
   score: number;
   total: number;
   grade: string;
-  date: string;
+  createdAt: string;
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -134,11 +134,14 @@ const ParentMarksScreen = () => {
     ? marks
     : marks.filter(m => m.student._id === selectedChild);
 
+  // Group by child ID (names can collide between siblings)
   const marksByChild = filteredMarks.reduce((acc: any, mark) => {
-    const childName = mark.student?.user?.name || 'Unknown';
-    if (!acc[childName]) acc[childName] = {};
-    if (!acc[childName][mark.subject]) acc[childName][mark.subject] = [];
-    acc[childName][mark.subject].push(mark);
+    const childId = mark.student._id;
+    if (!acc[childId]) {
+      acc[childId] = { name: mark.student?.user?.name || 'Unknown', subjects: {} };
+    }
+    if (!acc[childId].subjects[mark.subject]) acc[childId].subjects[mark.subject] = [];
+    acc[childId].subjects[mark.subject].push(mark);
     return acc;
   }, {});
 
@@ -213,16 +216,16 @@ const ParentMarksScreen = () => {
 
         {/* ── MARKS BY CHILD ────────────────────────────────────────────── */}
         {Object.keys(marksByChild).length > 0 ? (
-          Object.entries(marksByChild).map(([childName, subjects]) => (
-            <View key={childName}>
+          Object.entries(marksByChild).map(([childId, group]: [string, any]) => (
+            <View key={childId}>
               <View style={s.childHeaderRow}>
-                <Image source={{ uri: getAvatarUrl(childName) }} style={s.childAvatar} />
-                <Text style={s.childNameText}>{childName}</Text>
+                <Image source={{ uri: getAvatarUrl(group.name) }} style={s.childAvatar} />
+                <Text style={s.childNameText}>{group.name}</Text>
               </View>
 
-              {Object.entries(subjects as any).map(([subject, subjectMarks]: [string, any]) => {
+              {Object.entries(group.subjects).map(([subject, subjectMarks]: [string, any]) => {
                 const avg = subjectMarks.reduce((sum: number, m: any) =>
-                  sum + (m.score / m.total * 100), 0) / subjectMarks.length;
+                  sum + pct(m.score, m.total), 0) / subjectMarks.length;
                 const avgRounded = Math.round(avg);
                 const grade = calculateGrade(avg);
                 const gradeColor = getGradeColor(grade);
@@ -253,13 +256,15 @@ const ParentMarksScreen = () => {
                           <View style={{ flex: 1 }}>
                             <Text style={s.testName}>{mark.testName}</Text>
                             <Text style={s.testDate}>
-                              {new Date(mark.date).toLocaleDateString('en-ZA', {
+                              {new Date(mark.createdAt).toLocaleDateString('en-ZA', {
                                 day: 'numeric', month: 'short', year: 'numeric',
                               })}
                             </Text>
                           </View>
-                          <Text style={[s.testMark, { color: getGradeColor(mark.grade || calculateGrade(mark.score / mark.total * 100)) }]}>
-                            {Math.round((mark.score / mark.total) * 100)}%
+                          {/* mark.grade is the school grade level (e.g. "10"), not a
+                              letter grade — always derive the letter from the % */}
+                          <Text style={[s.testMark, { color: getGradeColor(calculateGrade(pct(mark.score, mark.total))) }]}>
+                            {Math.round(pct(mark.score, mark.total))}%
                           </Text>
                         </View>
                       ))}

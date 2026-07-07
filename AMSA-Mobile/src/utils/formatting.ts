@@ -54,6 +54,13 @@ export function getSubjectIcon(subject: string): string {
 }
 
 // ─── Grade helpers ────────────────────────────────────────────────────────────
+// Percentage from a score/total pair; 0 when total is missing/zero so a bad
+// mark record never renders NaN% or Infinity%.
+export function pct(score: number, total: number): number {
+  if (!total) return 0;
+  return (score / total) * 100;
+}
+
 export function calculateGrade(pct: number): string {
   if (pct >= 90) return 'A+';
   if (pct >= 80) return 'A';
