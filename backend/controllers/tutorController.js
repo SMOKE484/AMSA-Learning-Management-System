@@ -360,7 +360,7 @@ export const getTutorStudentMarks = async (req, res) => {
 export const updateTutorMark = async (req, res) => {
   try {
     const { markId } = req.params;
-    const { score, total } = req.body;
+    const { score, total, testName } = req.body;
     const tutor = await Tutor.findOne({ user: req.userId });
 
     // Find mark and ensure this tutor owns it
@@ -372,13 +372,49 @@ export const updateTutorMark = async (req, res) => {
     const validationError = validateMarkValues(newScore, newTotal);
     if (validationError) return res.status(400).json({ message: validationError });
 
+    if (testName !== undefined && !String(testName).trim()) {
+      return res.status(400).json({ message: "Test name cannot be empty" });
+    }
+
     mark.score = newScore;
     mark.total = newTotal;
+    if (testName !== undefined) mark.testName = String(testName).trim();
     await mark.save();
+
+    NotificationService.sendMarkChangeNotification(mark.student, {
+      subject: mark.subject,
+      testName: mark.testName
+    }, 'updated');
 
     await invalidateMarksCache();
 
     res.json({ message: "Mark updated", mark });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+//Tutor can delete THEIR OWN uploads
+export const deleteTutorMark = async (req, res) => {
+  try {
+    const { markId } = req.params;
+    const tutor = await Tutor.findOne({ user: req.userId });
+    if (!tutor) return res.status(404).json({ message: "Tutor not found" });
+
+    // Find mark and ensure this tutor owns it
+    const mark = await Mark.findOne({ _id: markId, tutor: tutor._id });
+    if (!mark) return res.status(404).json({ message: "Mark not found or unauthorized" });
+
+    await mark.deleteOne();
+
+    NotificationService.sendMarkChangeNotification(mark.student, {
+      subject: mark.subject,
+      testName: mark.testName
+    }, 'deleted');
+
+    await invalidateMarksCache();
+
+    res.json({ message: "Mark deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

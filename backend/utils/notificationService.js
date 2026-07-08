@@ -249,6 +249,54 @@ export const sendMarksNotification = async (studentIds, assessmentDetails) => {
 };
 
 /**
+ * 4b. Send "Mark Updated/Removed" Notification (Student + their Parents)
+ * action: 'updated' | 'deleted'
+ */
+export const sendMarkChangeNotification = async (studentId, assessmentDetails, action) => {
+  try {
+    const studentTokens = await getTokensForStudents([studentId]);
+    const parentTokens = await getTokensForParents([studentId]);
+
+    const { subject, testName } = assessmentDetails;
+    const messages = [];
+
+    const studentBody = action === 'deleted'
+      ? `A mark for ${subject} (${testName}) was removed.`
+      : `Your mark for ${subject} (${testName}) was updated.`;
+    const parentBody = action === 'deleted'
+      ? `A mark for ${subject} (${testName}) was removed for your child.`
+      : `A mark for ${subject} (${testName}) was updated for your child.`;
+
+    studentTokens.forEach(token => {
+      messages.push({
+        to: token,
+        sound: 'default',
+        title: action === 'deleted' ? 'Mark Removed' : 'Mark Updated 📊',
+        body: studentBody,
+        data: { screen: 'Marks' },
+      });
+    });
+
+    parentTokens.forEach(token => {
+      messages.push({
+        to: token,
+        sound: 'default',
+        title: action === 'deleted' ? 'Mark Removed' : 'Mark Updated',
+        body: parentBody,
+        data: { screen: 'ChildMarks' },
+      });
+    });
+
+    if (messages.length > 0) {
+      await sendPushMessages(messages);
+      console.log(`✅ Mark ${action} notifications sent to ${studentTokens.length} students and ${parentTokens.length} parents.`);
+    }
+  } catch (error) {
+    console.error('❌ Mark Change Notification Error:', error);
+  }
+};
+
+/**
  * 5. Send "Attendance Confirmation" (Parents Only)
  * Triggered when a student successfully checks in
  */
@@ -568,6 +616,7 @@ export const NotificationService = {
   sendCheckInAvailableNotification,
   sendNoteNotification,
   sendMarksNotification,
+  sendMarkChangeNotification,
   sendAttendanceConfirmation,
   sendAbsentAlert,
   sendAbsentAlertsBatch,

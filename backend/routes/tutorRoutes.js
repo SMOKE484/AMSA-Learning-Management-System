@@ -11,6 +11,7 @@ import {
   getAssignedStudents,
   getTutorStudentMarks,
   updateTutorMark,
+  deleteTutorMark,
   uploadMarks
 } from "../controllers/tutorController.js";
 import { authenticate, authorize } from "../middleware/authMiddleware.js";
@@ -47,5 +48,6 @@ router.delete("/notes/:noteId", deleteNote);
 router.post("/marks/upload", uploadMarks); 
 router.get("/marks/view", getTutorStudentMarks);
 router.put("/marks/:markId", updateTutorMark);
+router.delete("/marks/:markId", deleteTutorMark);
 
 export default router;

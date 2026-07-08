@@ -46,10 +46,14 @@ export const marksService = {
     }
   },
 
-  // Delete a mark (Admin only)
-  deleteMark: async (markId) => {
+  // Delete a mark (Admin or Tutor)
+  deleteMark: async (markId, role = 'admin') => {
     try {
-      const response = await api.delete(`/admin/marks/${markId}`);
+      const endpoint = role === 'tutor'
+        ? `/tutors/marks/${markId}`
+        : `/admin/marks/${markId}`;
+
+      const response = await api.delete(endpoint);
       return response.data;
     } catch (error) {
       throw error.response?.data?.message || 'Failed to delete mark';
