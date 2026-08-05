@@ -10,7 +10,9 @@ const studentSchema = new mongoose.Schema(
       enum: PREDEFINED_GRADES
     },
     subjects: [{ type: String, required: true }],
-    parents: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
+    parents: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    photoUrl: { type: String, default: null },
+    photoUpdatedAt: { type: Date, default: null }
   },
   { timestamps: true }
 );

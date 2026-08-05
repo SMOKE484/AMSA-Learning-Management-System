@@ -18,7 +18,7 @@ const userSchema = new Schema(
     },
     role: {
       type: String,
-      enum: ["admin", "tutor", "student", "parent"],
+      enum: ["admin", "tutor", "student", "parent", "staff"],
       default: "student",
     },
     pushToken: {

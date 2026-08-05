@@ -46,18 +46,22 @@ const attendanceSchema = new mongoose.Schema({
     verificationMethod: {
       type: String,
       // Added "school_ip_verified" to this list to prevent crashes
-      enum: ["location", "wifi", "qr", "manual", "both", "school_ip_verified"],
+      enum: ["location", "wifi", "qr", "manual", "both", "school_ip_verified", "nfc"],
       default: "manual"
     },
     // === MODIFIED SECTION ENDS ===
-    
+
     ipAddress: String,
     deviceId: String,
     wifiNetwork: {
       ssid: String,
       bssid: String,
       signalStrength: Number
-    }
+    },
+
+    // NFC tap-attendance audit trail
+    card: { type: mongoose.Schema.Types.ObjectId, ref: "Card" },
+    markedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
   },
   
   // Check-out details

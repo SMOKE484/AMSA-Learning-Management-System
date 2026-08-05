@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import path from "path";
 import User from "../models/user.js";
 import Student from "../models/student.js";
 import Tutor from "../models/tutor.js";
@@ -10,6 +11,7 @@ import bcrypt from "bcryptjs";
 import { invalidateTutorCache, invalidateMarksCache } from "../middleware/cacheMiddleware.js";
 import { validateMarkValues } from "../utils/markValidation.js";
 import { PREDEFINED_SUBJECTS, PREDEFINED_GRADES } from "../config/academicConfig.js";
+import { uploadToS3, deleteFromS3 } from "../utils/s3Service.js";
 
 // Create Student with linked User
 export const createStudent = async (req, res) => {
@@ -483,6 +485,103 @@ export const updateAdmin = async (req, res) => {
     if (!updated) return res.status(404).json({ message: "Admin not found" });
 
     res.json({ message: "Admin updated successfully", user: updated });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Admin uploads a student's official photo, shown on NFC tap-attendance
+export const uploadStudentPhoto = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    if (!req.file) {
+      return res.status(400).json({ message: "No photo uploaded" });
+    }
+
+    const student = await Student.findById(studentId);
+    if (!student) return res.status(404).json({ message: "Student not found" });
+
+    const uniqueFileName = `${studentId}-${Date.now()}${path.extname(req.file.originalname)}`;
+
+    let s3Url;
+    try {
+      s3Url = await uploadToS3(req.file.buffer, uniqueFileName, req.file.mimetype, "photos");
+    } catch (uploadError) {
+      return res.status(500).json({ message: "Failed to upload photo to cloud storage" });
+    }
+
+    if (student.photoUrl) {
+      try { await deleteFromS3(student.photoUrl); } catch (e) { console.error("S3 delete failed:", e.message); }
+    }
+
+    student.photoUrl = s3Url;
+    student.photoUpdatedAt = new Date();
+    await student.save();
+
+    res.json({ message: "Photo uploaded successfully", photoUrl: student.photoUrl });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ===== ATTENDANCE-STAFF ACCOUNT MANAGEMENT =====
+// Restricted accounts that can only reach the NFC tap-attendance screen —
+// same shape as admin accounts above, just filtered to role: 'staff'.
+
+export const listStaff = async (req, res) => {
+  try {
+    const staff = await User.find({ role: 'staff' }).select('-password');
+    res.json({ staff });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const createStaff = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(400).json({ message: "User already exists" });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({ name, email, password: hashedPassword, role: 'staff' });
+
+    const result = user.toObject();
+    delete result.password;
+    res.status(201).json({ message: "Staff account created successfully", user: result });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateStaff = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, email } = req.body;
+
+    if (email) {
+      const existing = await User.findOne({ email, _id: { $ne: userId } });
+      if (existing) return res.status(400).json({ message: "Email already in use" });
+    }
+
+    const updates = {};
+    if (name) updates.name = name;
+    if (email) updates.email = email;
+
+    const updated = await User.findOneAndUpdate(
+      { _id: userId, role: 'staff' },
+      updates,
+      { new: true }
+    ).select('-password');
+
+    if (!updated) return res.status(404).json({ message: "Staff account not found" });
+
+    res.json({ message: "Staff account updated successfully", user: updated });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -51,11 +51,31 @@ import ParentAttendanceScreen from './src/screens/parent/AttendanceScreen';
 import ParentMessagesScreen from './src/screens/parent/MessagesScreen';
 import ParentProfileScreen from './src/screens/parent/ProfileScreen';
 
+// Admin / Staff Screens
+import TapAttendanceScreen from './src/screens/admin/TapAttendanceScreen';
+import EnrollCardScreen from './src/screens/admin/EnrollCardScreen';
+import ManageCardsScreen from './src/screens/admin/ManageCardsScreen';
+import AdminProfileScreen from './src/screens/admin/AdminProfileScreen';
+import AdminDashboardScreen from './src/screens/admin/AdminDashboardScreen';
+import ManageStudentsScreen from './src/screens/admin/ManageStudentsScreen';
+import ManageTutorsScreen from './src/screens/admin/ManageTutorsScreen';
+import ManageParentsScreen from './src/screens/admin/ManageParentsScreen';
+import ManageSchedulesScreen from './src/screens/admin/ManageSchedulesScreen';
+import ClassAttendanceScreen from './src/screens/admin/ClassAttendanceScreen';
+import ManageMarksScreen from './src/screens/admin/ManageMarksScreen';
+import SchoolConfigScreen from './src/screens/admin/SchoolConfigScreen';
+import ManageAdminsScreen from './src/screens/admin/ManageAdminsScreen';
+import ManageStaffScreen from './src/screens/admin/ManageStaffScreen';
+import ManageSubjectsScreen from './src/screens/admin/ManageSubjectsScreen';
+import AnnouncementsScreen from './src/screens/admin/AnnouncementsScreen';
+import AdminMessagesScreen from './src/screens/admin/AdminMessagesScreen';
+
 SplashScreen.preventAutoHideAsync();
 
 const Stack = createNativeStackNavigator();
 const StudentTab = createBottomTabNavigator();
 const ParentTab = createBottomTabNavigator();
+const AdminTab = createBottomTabNavigator();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FLOATING GLASSMORPHISM TAB BAR BACKGROUND
@@ -229,6 +249,99 @@ const ParentTabNavigator: React.FC = () => {
 
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ADMIN / STAFF TAB NAVIGATOR
+// A single navigator serves both roles — 'staff' only ever sees the Tap and
+// Profile tabs; the full admin CRUD screens are reached from a "More" menu
+// (not yet built) and pushed at the Stack level below, same as Parent's
+// Messages/NotificationSettings screens today.
+// ═══════════════════════════════════════════════════════════════════════════
+const AdminTabNavigator: React.FC = () => {
+  const { colors } = useTheme();
+  const { user } = useAuth();
+  const isStaff = user?.role === 'staff';
+
+  return (
+    <AdminTab.Navigator
+      screenOptions={({ route }) => ({
+        ...buildTabScreenOptions(colors.blue, colors),
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName: keyof typeof iconsMap;
+          switch (route.name) {
+            case 'Dashboard': iconName = focused ? 'home' : 'home-outline';    break;
+            case 'Tap':       iconName = 'card-outline';                      break;
+            case 'Enroll':    iconName = 'add-circle-outline';                break;
+            case 'Profile':   iconName = focused ? 'person' : 'person-outline'; break;
+            default:          iconName = 'help-circle';
+          }
+          return <Icon name={iconName} size={size} color={color} />;
+        },
+      })}
+    >
+      {!isStaff && (
+        <AdminTab.Screen name="Dashboard" component={AdminDashboardScreen} options={{ title: 'Home' }} />
+      )}
+      <AdminTab.Screen name="Tap" component={TapAttendanceScreen} options={{ title: 'Tap' }} />
+      {!isStaff && (
+        <AdminTab.Screen name="Enroll" component={EnrollCardScreen} options={{ title: 'Enroll' }} />
+      )}
+      <AdminTab.Screen name="Profile" component={AdminProfileScreen} options={{ title: 'Profile' }} />
+    </AdminTab.Navigator>
+  );
+};
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADMIN STACK
+// ═══════════════════════════════════════════════════════════════════════════
+const AdminStackNavigator: React.FC = () => {
+  const { colors } = useTheme();
+  return (
+    <Stack.Navigator>
+      <Stack.Screen
+        name="AdminTabs"
+        component={AdminTabNavigator}
+        options={{ headerShown: false }}
+      />
+      {([
+        ['ManageStudents', ManageStudentsScreen, 'Students'],
+        ['ManageTutors', ManageTutorsScreen, 'Tutors'],
+        ['ManageParents', ManageParentsScreen, 'Parents'],
+        ['ManageSchedules', ManageSchedulesScreen, 'Schedules'],
+        ['ClassAttendanceMirror', ClassAttendanceScreen, 'Attendance'],
+        ['ManageMarks', ManageMarksScreen, 'Marks'],
+        ['ManageSubjects', ManageSubjectsScreen, 'Subjects'],
+        ['ManageAdmins', ManageAdminsScreen, 'Admins'],
+        ['ManageStaff', ManageStaffScreen, 'Staff'],
+        ['SchoolConfig', SchoolConfigScreen, 'School Config'],
+        ['Announcements', AnnouncementsScreen, 'Announcements'],
+        ['AdminMessages', AdminMessagesScreen, 'Messages'],
+        ['ManageCards', ManageCardsScreen, 'Cards'],
+      ] as [string, React.ComponentType, string][]).map(([name, component]) => (
+        <Stack.Screen key={name} name={name} component={component} options={{ headerShown: false, presentation: 'card' }} />
+      ))}
+      <Stack.Screen
+        name="NotificationSettings"
+        component={NotificationSettingsScreen}
+        options={{
+          title: 'Notification Settings',
+          headerShown: true,
+          presentation: 'card',
+          headerStyle: { backgroundColor: colors.bg },
+          headerTintColor: colors.textPrimary,
+          headerTitleStyle: { fontWeight: '700', color: colors.textPrimary },
+        }}
+      />
+      <Stack.Screen
+        name="NotificationList"
+        component={NotificationListScreen}
+        options={{ headerShown: false, presentation: 'card' }}
+      />
+    </Stack.Navigator>
+  );
+};
+
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PARENT STACK
 // ═══════════════════════════════════════════════════════════════════════════
 const ParentStackNavigator: React.FC = () => {
@@ -389,6 +502,13 @@ const Navigation: React.FC = () => {
           navigationRef.navigate('ParentApp', { screen: 'NotificationList' });
         else if (data.screen === 'Messages')
           navigationRef.navigate('ParentApp', { screen: 'Messages' });
+      } else if (user?.role === 'admin' || user?.role === 'staff') {
+        if (data.screen === 'Messages')
+          navigationRef.navigate('AdminApp', { screen: 'AdminMessages' });
+        else if (data.screen === 'Notifications')
+          navigationRef.navigate('AdminApp', { screen: 'NotificationList' });
+        else if (data.screen === 'Dashboard')
+          navigationRef.navigate('AdminApp', { screen: 'AdminTabs', params: { screen: 'Dashboard' } });
       }
     });
 
@@ -407,6 +527,8 @@ const Navigation: React.FC = () => {
             <Stack.Screen name="StudentApp" component={StudentStackNavigator} />
           ) : user.role === 'parent' ? (
             <Stack.Screen name="ParentApp" component={ParentStackNavigator} />
+          ) : user.role === 'admin' || user.role === 'staff' ? (
+            <Stack.Screen name="AdminApp" component={AdminStackNavigator} />
           ) : (
             <Stack.Screen name="Login" component={LoginScreen} />
           )}

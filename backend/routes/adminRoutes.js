@@ -1,4 +1,5 @@
 import express from "express";
+import multer from "multer";
 import {
   createStudent,
   createTutor,
@@ -17,6 +18,10 @@ import {
   listAdmins,
   createAdmin,
   updateAdmin,
+  uploadStudentPhoto,
+  listStaff,
+  createStaff,
+  updateStaff,
   listSubjects,
   createSubject,
   updateSubject,
@@ -25,6 +30,7 @@ import {
 import { authenticate, authorize } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.use(authenticate);
 router.use(authorize("admin"));
@@ -45,6 +51,12 @@ router.delete("/users/:userId", deleteUser);
 router.get("/admins", listAdmins);
 router.post("/admins", createAdmin);
 router.put("/admins/:userId", updateAdmin);
+
+router.post("/students/:studentId/photo", upload.single("file"), uploadStudentPhoto);
+
+router.get("/staff", listStaff);
+router.post("/staff", createStaff);
+router.put("/staff/:userId", updateStaff);
 
 router.get("/marks", getAllMarks);
 router.delete("/marks/:markId", deleteMark);

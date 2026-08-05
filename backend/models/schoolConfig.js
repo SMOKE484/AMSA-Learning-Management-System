@@ -105,6 +105,15 @@ const schoolConfigSchema = new mongoose.Schema({
     default: true
   },
 
+  // Minutes after a class's scheduled start time an NFC tap is still counted
+  // "present" rather than "late"
+  nfcLateGraceMinutes: {
+    type: Number,
+    default: 10,
+    min: 0,
+    max: 60
+  },
+
   // Notification settings
   sendClassReminders: {
     type: Boolean,

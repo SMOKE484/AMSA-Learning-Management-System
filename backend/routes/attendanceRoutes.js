@@ -1,5 +1,5 @@
 import express from 'express';
-import { checkIn, checkOut, getClassAttendance, getAttendanceHistory, manualOverride, getClassReport, getAllAttendance, markStudentAttendance, markBatchAttendance } from '../controllers/attendanceController.js';
+import { checkIn, checkOut, getClassAttendance, getAttendanceHistory, manualOverride, getClassReport, getAllAttendance, markStudentAttendance, markBatchAttendance, nfcTapAttendance } from '../controllers/attendanceController.js';
 import { authenticate, authorize } from '../middleware/authMiddleware.js';
 import { validateGeoLocation } from '../middleware/geoValidation.js';
 
@@ -16,5 +16,6 @@ router.patch('/attendance/:attendanceId/override', authenticate, authorize(['tut
 router.get('/admin/all', authenticate, authorize(['admin']), getAllAttendance);
 router.post('/classes/:classId/mark-student', authenticate, authorize(['admin', 'tutor']), markStudentAttendance);
 router.post('/classes/:classId/mark-batch', authenticate, authorize(['admin', 'tutor']), markBatchAttendance);
+router.post('/nfc-tap', authenticate, authorize(['admin', 'staff']), nfcTapAttendance);
 
 export default router;

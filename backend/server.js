@@ -20,6 +20,7 @@ import attendanceRoutes from "./routes/attendanceRoutes.js";
 import timetableRoutes from "./routes/timetableRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
+import cardRoutes from "./routes/cardRoutes.js";
 import { setIo } from "./socket.js";
 
 dotenv.config();
@@ -208,6 +209,8 @@ app.use("/api/attendance", attendanceRoutes);
 app.use("/api/timetable", timetableRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/cards", cardRoutes);
+app.use("/api/cards", cardRoutes);
 
 app.get("/", (req, res) => {
   res.send("Academic Management System API is running...");
@@ -363,6 +366,7 @@ app.get("/api/school-config", authenticate, async (req, res) => {
         defaultCheckInBuffer: config.defaultCheckInBuffer,
         defaultCheckOutBuffer: config.defaultCheckOutBuffer,
         autoMarkAbsentEnabled: config.autoMarkAbsentEnabled,
+        nfcLateGraceMinutes: config.nfcLateGraceMinutes,
       }
     });
   } catch (error) {
@@ -378,7 +382,7 @@ app.put("/api/admin/school-config", authenticate, authorize(['admin']), async (r
       name, coordinates, allowedRadius, geoFencingEnabled,
       requireLocationAccuracy, maxLocationAccuracy, geofencePolygon,
       address, defaultCheckInBuffer, defaultCheckOutBuffer, autoMarkAbsentEnabled,
-      allowedIPs
+      allowedIPs, nfcLateGraceMinutes
     } = req.body;
 
     if (name !== undefined) config.name = name;
@@ -394,6 +398,7 @@ app.put("/api/admin/school-config", authenticate, authorize(['admin']), async (r
     if (defaultCheckOutBuffer != null) config.defaultCheckOutBuffer = defaultCheckOutBuffer;
     if (autoMarkAbsentEnabled != null) config.autoMarkAbsentEnabled = autoMarkAbsentEnabled;
     if (allowedIPs !== undefined) config.allowedIPs = allowedIPs;
+    if (nfcLateGraceMinutes != null) config.nfcLateGraceMinutes = nfcLateGraceMinutes;
 
     await config.save();
     res.json({ success: true, message: 'School configuration updated successfully' });

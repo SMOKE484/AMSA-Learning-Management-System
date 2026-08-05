@@ -11,17 +11,17 @@ const s3Client = new S3Client({
   },
 });
 
-export const uploadToS3 = async (fileBuffer, fileName, mimeType) => {
+export const uploadToS3 = async (fileBuffer, fileName, mimeType, folder = "notes") => {
   const uploadParams = {
     Bucket: process.env.AWS_BUCKET_NAME,
-    Key: `notes/${fileName}`,
+    Key: `${folder}/${fileName}`,
     Body: fileBuffer,
     ContentType: mimeType,
   };
 
   try {
     await s3Client.send(new PutObjectCommand(uploadParams));
-    const url = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/notes/${fileName}`;
+    const url = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${folder}/${fileName}`;
     return url;
   } catch (error) {
     console.error("S3 Upload Error:", error);

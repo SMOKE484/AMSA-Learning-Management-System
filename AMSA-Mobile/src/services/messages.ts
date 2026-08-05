@@ -45,4 +45,10 @@ export const messageService = {
   async markRead(conversationId: string): Promise<void> {
     await api.patch(`/messages/${conversationId}/read`);
   },
+
+  // Admin-only: start (or resume) a conversation with a parent
+  async createOrGetConversation(parentId: string, relatedStudentId?: string): Promise<{ conversation: Conversation }> {
+    const res = await api.post('/messages', { parentId, relatedStudentId });
+    return res.data;
+  },
 };

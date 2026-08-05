@@ -50,6 +50,12 @@
           "icon": "./assets/amsaIcon.png",
           "color": "#ffffff"
         }
+      ],
+      [
+        "react-native-nfc-manager",
+        {
+          "nfcPermission": "AMSA needs NFC access to read and write student attendance cards."
+        }
       ]
     ],
     "updates": {
