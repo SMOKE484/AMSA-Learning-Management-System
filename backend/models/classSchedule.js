@@ -3,6 +3,7 @@
 
 import mongoose from "mongoose";
 import { PREDEFINED_GRADES } from "../config/academicConfig.js";
+import { TimeService } from "../utils/timeService.js";
 
 const classScheduleSchema = new mongoose.Schema({
   tutor: { type: mongoose.Schema.Types.ObjectId, ref: "Tutor", required: true },
@@ -43,17 +44,11 @@ classScheduleSchema.index({ checkOutEnd: 1, status: 1 });
 
 // Virtuals
 classScheduleSchema.virtual('classStartDateTime').get(function() {
-  const [hours, minutes] = this.startTime.split(':').map(Number);
-  const date = new Date(this.scheduledDate);
-  date.setHours(hours, minutes, 0, 0);
-  return date;
+  return TimeService.combineDateAndTime(this.scheduledDate, this.startTime);
 });
 
 classScheduleSchema.virtual('classEndDateTime').get(function() {
-  const [hours, minutes] = this.endTime.split(':').map(Number);
-  const date = new Date(this.scheduledDate);
-  date.setHours(hours, minutes, 0, 0);
-  return date;
+  return TimeService.combineDateAndTime(this.scheduledDate, this.endTime);
 });
 
 // Pre-save hooks
@@ -61,14 +56,10 @@ classScheduleSchema.pre('save', function(next) {
   if (this.isModified('scheduledDate') || this.isModified('startTime') || this.isModified('endTime')) {
     
     // 1. Calculate and Save Exact Start/End Times
-    const [startHours, startMinutes] = this.startTime.split(':').map(Number);
-    const startDate = new Date(this.scheduledDate);
-    startDate.setHours(startHours, startMinutes, 0, 0);
+    const startDate = TimeService.combineDateAndTime(this.scheduledDate, this.startTime);
     this.classStartTime = startDate;
 
-    const [endHours, endMinutes] = this.endTime.split(':').map(Number);
-    const endDate = new Date(this.scheduledDate);
-    endDate.setHours(endHours, endMinutes, 0, 0);
+    const endDate = TimeService.combineDateAndTime(this.scheduledDate, this.endTime);
     this.classEndTime = endDate;
 
     // Check-in opens 15 mins before end 

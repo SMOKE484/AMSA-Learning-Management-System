@@ -39,9 +39,12 @@ export class TimeService {
    */
   static combineDateAndTime(date, timeString) {
     const [hours, minutes] = timeString.split(':').map(Number);
-    const result = new Date(date);
-    result.setHours(hours, minutes, 0, 0);
-    return result;
+    const d = new Date(date);
+    // The school operates in Africa/Johannesburg (SAST, fixed UTC+2, no DST).
+    // Build the UTC instant directly from that fixed offset instead of using
+    // Date#setHours, which sets the hour in the server process's own local
+    // timezone (UTC on Railway) and silently shifts every class time by 2h.
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), hours - 2, minutes, 0, 0));
   }
 
   /**
