@@ -51,6 +51,10 @@ const ClassAttendance = () => {
   const [markStatuses, setMarkStatuses] = useState({});
   const [savingAll, setSavingAll] = useState(false);
   const [classAttendanceMap, setClassAttendanceMap] = useState({});
+  // Classes for the picked date, fetched separately from the capped `schedules`
+  // list below — that list is sorted oldest-first with a hard limit, so as the
+  // school accumulates classes, recent/today's classes fall off the end of it.
+  const [dailySchedules, setDailySchedules] = useState([]);
 
   const { showSnackbar } = useSnackbar();
 
@@ -102,11 +106,18 @@ const ClassAttendance = () => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (!classDateFilter) { setDailySchedules([]); return; }
+    api.get('/schedules', { params: { startDate: classDateFilter, endDate: classDateFilter, limit: 200 } })
+      .then(res => setDailySchedules(res.data.schedules || []))
+      .catch(() => setDailySchedules([]));
+  }, [classDateFilter]);
+
   // When a class is selected for marking, initialise statuses
   const handleClassSelect = (classId) => {
     setSelectedClassId(classId);
     if (!classId) { setMarkStatuses({}); return; }
-    const cls = schedules.find(s => s._id === classId);
+    const cls = dailySchedules.find(s => s._id === classId);
     if (!cls) return;
     const initial = {};
     (cls.students || []).forEach(s => {
@@ -144,13 +155,7 @@ const ClassAttendance = () => {
     return found?.grade ? `Grade ${found.grade}` : '—';
   };
 
-  const filteredSchedules = schedules.filter(s => {
-    if (!classDateFilter) return true;
-    if (!s.scheduledDate) return false;
-    return format(new Date(s.scheduledDate), 'yyyy-MM-dd') === classDateFilter;
-  });
-
-  const selectedClass = schedules.find(s => s._id === selectedClassId);
+  const selectedClass = dailySchedules.find(s => s._id === selectedClassId);
   const enrolledStudents = selectedClass?.students || [];
 
   // Filtering logic
@@ -280,13 +285,13 @@ const ClassAttendance = () => {
               />
 
               <Autocomplete
-                options={filteredSchedules}
+                options={dailySchedules}
                 getOptionLabel={(s) =>
                   `${s.subject} — Grade ${s.grade} — ${s.title} (${
                     s.scheduledDate ? format(new Date(s.scheduledDate), 'MMM dd, yyyy') : 'No date'
                   })`
                 }
-                value={filteredSchedules.find(s => s._id === selectedClassId) || null}
+                value={dailySchedules.find(s => s._id === selectedClassId) || null}
                 onChange={(_, newValue) => handleClassSelect(newValue?._id || '')}
                 renderInput={(params) => (
                   <TextField {...params} label="Search Class" size="small" placeholder="Type subject, grade or title…" />
