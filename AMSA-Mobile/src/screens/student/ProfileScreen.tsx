@@ -311,15 +311,13 @@ const StudentProfileScreen = () => {
     }
   }, [pickerVisible, pendingPickerAction]);
 
-  const handleUploadPhoto = async () => {
-    console.log('[Picker] handleUploadPhoto pressed — checking permission…');
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    console.log('[Picker] library permission status:', status);
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow photo library access in Settings.');
-      return;
-    }
-    console.log('[Picker] permission ok — setting pending: library');
+  const handleUploadPhoto = () => {
+    // No permission request: launchImageLibraryAsync uses the system photo
+    // picker (Android Photo Picker / iOS PHPicker), which needs none. On
+    // Android 13+ requestMediaLibraryPermissionsAsync() returns 'denied'
+    // outright (READ_MEDIA_IMAGES isn't in the manifest) and used to block
+    // the picker entirely.
+    console.log('[Picker] handleUploadPhoto pressed — setting pending: library');
     setPendingPickerAction('library');
     setPickerVisible(false);
   };

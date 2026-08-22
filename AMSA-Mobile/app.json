@@ -2,7 +2,7 @@
   "expo": {
     "name": "AMSA LMS",
     "slug": "AMSA-Mobile",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/amsaIcon.png",
     "userInterfaceStyle": "light",
@@ -54,7 +54,8 @@
       [
         "react-native-nfc-manager",
         {
-          "nfcPermission": "AMSA needs NFC access to read and write student attendance cards."
+          "nfcPermission": "AMSA needs NFC access to read and write student attendance cards.",
+          "includeNdefEntitlement": false
         }
       ]
     ],

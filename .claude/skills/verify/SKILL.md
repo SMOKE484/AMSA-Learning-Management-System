@@ -31,6 +31,15 @@ No registration endpoint — create users directly with the backend models (run 
 - Tutor edit: `PUT /api/tutors/marks/:markId`; admin: `PUT/DELETE /api/admin/marks/:markId`, `GET /api/admin/marks`.
 - Student view: `GET /api/students/marks` (Redis-cached 300s — hit twice and grep server log for `Serving from cache:` to confirm the cache path was exercised).
 
+## Driving the mobile app (Android emulator)
+
+- AVDs exist: `smoke` (API 34), `smoke2`. Boot: `"$LOCALAPPDATA/Android/Sdk/emulator/emulator.exe" -avd smoke -no-snapshot-save -gpu swiftshader_indirect -no-audio` (background; ~1 min to boot, expect an occasional "System UI isn't responding" ANR — tap Wait).
+- The AMSA app is NOT installed on the AVDs; `expo-dev-client` is in deps so plain `expo start --android` refuses. Use **`npx expo start --android --go --port 8081`** — it auto-downloads and installs Expo Go (several minutes first time).
+- Point the app at a local backend by temporarily editing `API_URL` in `AMSA-Mobile/src/services/api.ts` to `http://10.0.2.2:5099/api` (10.0.2.2 = host loopback from the emulator). **Revert before commit.**
+- `adb shell input text` drops characters — type in short chunks with sleeps, and screenshot (`adb exec-out screencap -p`) after each field to confirm. `/sdcard` paths need `//sdcard` in Git Bash (path-mangling).
+- Seed a gallery image for photo-picker flows: `adb push img.png //sdcard/Pictures/` + `am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/img.png`.
+- Expo Go shows a red `expo-notifications` toast on Android (push unsupported in Go) — dismiss it; it can swallow taps on the tab bar underneath.
+
 ## Gotchas
 
 - Background Bash tasks start in a different cwd — use absolute paths.

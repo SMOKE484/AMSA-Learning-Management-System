@@ -154,10 +154,11 @@ const ParentProfileScreen = () => {
   const handleUploadPhoto = async () => {
     setPickerVisible(false);
     await new Promise(r => setTimeout(r, 350));
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please allow photo library access in Settings.'); return;
-    }
+    // No permission request: launchImageLibraryAsync uses the system photo
+    // picker (Android Photo Picker / iOS PHPicker), which needs none. On
+    // Android 13+ requestMediaLibraryPermissionsAsync() returns 'denied'
+    // outright (READ_MEDIA_IMAGES isn't in the manifest) and used to block
+    // the picker entirely.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: 'images',
       allowsEditing: true,
