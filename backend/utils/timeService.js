@@ -150,6 +150,21 @@ export class TimeService {
   }
 
   /**
+   * Resolve an NFC tap's attendance status. "Present" covers the whole class
+   * window (anywhere from before class starts through class end) — a tap only
+   * becomes "late" once it lands more than `graceMinutes` after the class END
+   * time, not the start time.
+   * @param {Date} tapTime - When the NFC tap happened
+   * @param {Date} classEndTime - The class's scheduled end datetime
+   * @param {number} graceMinutes - Minutes after class end still counted "present" (default: 15)
+   * @returns {"present"|"late"}
+   */
+  static getNfcTapStatus(tapTime, classEndTime, graceMinutes = 15) {
+    const lateThreshold = addMinutes(classEndTime, graceMinutes);
+    return isAfter(tapTime, lateThreshold) ? "late" : "present";
+  }
+
+  /**
    * Calculate class duration in minutes
    * @param {string} startTime - Start time (HH:MM)
    * @param {string} endTime - End time (HH:MM)

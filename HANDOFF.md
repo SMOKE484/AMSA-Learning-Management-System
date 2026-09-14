@@ -20,7 +20,7 @@
 
 ### Design decisions worth knowing before touching this code
 - **Card data model**: physical tag holds a single NDEF text record containing an opaque random token — never the student's Mongo ID. `Card.token` → `Card.student` mapping lives server-side. Losing a card = revoke it (`PATCH /api/cards/:id/revoke`); the physical tag itself becomes permanently useless, no need to recover it.
-- **Present/late boundary**: computed fresh in `nfcTapAttendance` (`attendanceController.js`) off `ClassSchedule.classStartTime + SchoolConfig.nfcLateGraceMinutes` (default 10 min). Deliberately does **not** reuse `ClassSchedule.checkInStart/checkInEnd` — those are anchored to the class's *end* time (a pre-existing quirk for student self-check-in), wrong semantics for a door-tap system.
+- **Present/late boundary** (fixed 2026-09-14, see `BUGS_AND_FIXES.md`): `TimeService.getNfcTapStatus(now, classEndTime, graceMinutes)` (`timeService.js`), called from `nfcTapAttendance` (`attendanceController.js`) with `SchoolConfig.nfcLateGraceMinutes` (default 15 min). "Present" covers the whole class window — any tap from before class start through `classEndTime + graceMinutes`; only later taps are "late". Previously (bug) this was anchored to `classStartTime`, marking most on-time taps "late" once more than the grace period had passed since class *started*, even mid-class.
 - **Student photo is a NEW backend-stored field** (`Student.photoUrl`, admin-uploaded via `POST /api/admin/students/:id/photo`). Do not confuse with the pre-existing student/parent `ProfileScreen.tsx` photo picker — that one is local-device-only (`saveProfilePicture()`), never uploaded, and is unrelated/irrelevant to what the tap screen displays.
 - **No tutor-update endpoint exists** (backend or web) — `ManageTutorsScreen.tsx` intentionally only supports create/list/delete, matching the web app's actual capability. Don't "fix" this without checking if it's wanted first.
 - **`AccountManagerScreen.tsx`** is a shared component backing both `ManageAdminsScreen.tsx` and `ManageStaffScreen.tsx` (same UI, different endpoints) — edit the shared component, not both screens, for UI changes.
@@ -94,7 +94,7 @@ Three separate apps in one monorepo:
 | `mark.js` | Grade record — `student`, `subject`, `score`, `total` |
 | `notes.js` | Uploaded notes — `tutor`, `subject`, `grade`, `fileUrl`, `title` |
 | `notification.js` | In-app notification — `recipient` (User ref), `recipientType`, `type` (enum), `message`, `read` |
-| `schoolConfig.js` | School settings — geofencing, IP allowlist, check-in buffers, **`nfcLateGraceMinutes`** (new — minutes after class start an NFC tap still counts "present") |
+| `schoolConfig.js` | School settings — geofencing, IP allowlist, check-in buffers, **`nfcLateGraceMinutes`** (minutes after class **end** an NFC tap still counts "present"; default 15 — fixed 2026-09-14, was wrongly anchored to class start) |
 | `subject.js` | Subject master list |
 | `conversation.js` | Admin↔Parent messaging thread — `admin` (User ref), `parent` (User ref), unique index on (admin, parent), `unreadByAdmin`, `unreadByParent` |
 | `message.js` | Individual message — `conversation` (ref), `sender` (User ref), `senderRole` (admin/parent), `content`, `read` |

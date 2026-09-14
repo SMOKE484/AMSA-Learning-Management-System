@@ -4,6 +4,25 @@ Log every bug here when found; update the same entry when it's fixed. Check this
 
 ---
 
+## NFC tap attendance marks students "late" even when tapped on time
+
+**Found:** 2026-09-14
+**Status:** Fixed 2026-09-14
+
+**Symptom:** Students tapping their NFC card any time after the first few minutes of class — even well before the class ended — were marked "late" instead of "present". E.g. a 9:00–10:00 class marked a student late for tapping at 9:15, even though the class was still running.
+
+**Root cause:** [attendanceController.js](backend/controllers/attendanceController.js) `nfcTapAttendance` computed the present/late boundary as `classSchedule.classStartTime + SchoolConfig.nfcLateGraceMinutes` (default 10 min) — i.e. anchored to when the class *started*, not when it ended. Any tap more than 10 minutes into a class, which is most of a typical 45–60 minute class, was flagged "late" regardless of how much of the class remained. This matched what was (incorrectly) documented as intentional in `CLAUDE.md`'s business-rules table, so it read as "working as designed" rather than a bug until checked against how the school actually wants attendance to behave.
+
+**Fix:**
+- Added `TimeService.getNfcTapStatus(tapTime, classEndTime, graceMinutes)` in [timeService.js](backend/utils/timeService.js) — a pure function: "present" for any tap up through `classEndTime + graceMinutes`, "late" after that. A tap before class start is present too (harmless early arrival).
+- `nfcTapAttendance` now calls this against `classSchedule.classEndTime` instead of the old inline `classStartTime`-based calculation.
+- `SchoolConfig.nfcLateGraceMinutes` default bumped from 10 to 15 (minutes after class **end**, matching the self-check-out buffer's default and the school's stated 15-minute grace period) — [schoolConfig.js](backend/models/schoolConfig.js).
+- Updated the stale field label in [SchoolConfigScreen.tsx](AMSA-Mobile/src/screens/admin/SchoolConfigScreen.tsx) ("...after class start" → "...after class end") and the business-rules row in `CLAUDE.md` to match.
+- Tests first, per Workflow Rule 1: [nfcTapStatus.test.js](backend/tests/nfcTapStatus.test.js) — 9 cases covering mid-class taps (the reported bug), before-class-start taps, exactly-at-start/end/boundary taps, one-minute-past-boundary, well-past-boundary, the config-default fallback, and a zero-minute grace edge case. All failed against the old code (`getNfcTapStatus is not a function` before the fix existed, and would have failed the mid-class case against the old start-anchored logic), all pass now.
+- Verified end-to-end against a scratch DB (`amsa_verify_claude`): a real `POST /api/attendance/nfc-tap` call against a class 10 minutes into a 30-minute window returned `status: "present"` (previously would have been `"late"`); a class that ended 20 minutes ago (grace 15 min) returned `status: "late"`; a double-tap on the same student/class returned `alreadyMarked: true` with no duplicate `Attendance` doc.
+
+---
+
 ## Admin Dashboard / Manage Schedules show inaccurate class counts
 
 **Found:** 2026-09-14

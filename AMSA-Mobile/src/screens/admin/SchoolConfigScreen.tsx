@@ -94,7 +94,7 @@ const SchoolConfigScreen = () => {
           <TextInput style={formInputStyle(colors)} keyboardType="numeric" value={String(config.defaultCheckInBuffer)} onChangeText={v => update({ defaultCheckInBuffer: Number(v) || 0 })} />
           <Text style={[s.fieldLabel, { color: colors.textMuted }]}>Check-out buffer (minutes after class)</Text>
           <TextInput style={formInputStyle(colors)} keyboardType="numeric" value={String(config.defaultCheckOutBuffer)} onChangeText={v => update({ defaultCheckOutBuffer: Number(v) || 0 })} />
-          <Text style={[s.fieldLabel, { color: colors.textMuted }]}>NFC tap late-grace (minutes after class start)</Text>
+          <Text style={[s.fieldLabel, { color: colors.textMuted }]}>NFC tap late-grace (minutes after class end)</Text>
           <TextInput style={formInputStyle(colors)} keyboardType="numeric" value={String(config.nfcLateGraceMinutes)} onChangeText={v => update({ nfcLateGraceMinutes: Number(v) || 0 })} />
 
           <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.blue }]} onPress={handleSave} disabled={saving}>

@@ -5,6 +5,7 @@ import Tutor from "../models/tutor.js";
 import SchoolConfig from "../models/schoolConfig.js";
 import Card from "../models/card.js";
 import { NotificationService } from "../utils/notificationService.js";
+import { TimeService } from "../utils/timeService.js";
 
 export const markStudentAttendance = async (req, res) => {
   try {
@@ -395,9 +396,8 @@ export const nfcTapAttendance = async (req, res) => {
     }
 
     const schoolConfig = await SchoolConfig.getConfig();
-    const graceMinutes = schoolConfig.nfcLateGraceMinutes ?? 10;
-    const lateThreshold = new Date(classSchedule.classStartTime.getTime() + graceMinutes * 60000);
-    const status = now <= lateThreshold ? "present" : "late";
+    const graceMinutes = schoolConfig.nfcLateGraceMinutes ?? 15;
+    const status = TimeService.getNfcTapStatus(now, classSchedule.classEndTime, graceMinutes);
 
     const attendance = await Attendance.findOneAndUpdate(
       { class: classSchedule._id, student: student._id },
