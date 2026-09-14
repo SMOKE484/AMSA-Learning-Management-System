@@ -23,6 +23,24 @@ Log every bug here when found; update the same entry when it's fixed. Check this
 
 ---
 
+## Admin "Attendance Tracker" always shows "-" for Check-in Time on manually-marked students
+
+**Found:** 2026-09-14
+**Status:** Fixed 2026-09-14
+
+**Symptom:** On the web admin/tutor Attendance Tracker ([ClassAttendance.jsx](react-admin-tutor-web/src/pages/Admin/ClassAttendance.jsx)), every row showed `-` in the Check-in Time column, even for students marked "Present" — regardless of how many classes or students were checked.
+
+**Root cause:** This is the same root cause already identified (but not yet fixed) while investigating the parent-attendance bug above: `markStudentAttendance` and `markBatchAttendance` ([attendanceController.js](backend/controllers/attendanceController.js)) — used by the "Mark Attendance for a Class" / "Save All" flow that produced this data — only ever `$set: {status, isVerified, autoMarked, notes, manualOverride}`. `checkIn` was never touched, so a manually-marked "present" or "late" record has no `checkIn.time`, ever, by construction — not a missing value, a value that was never written.
+
+**Fix:**
+- Both controllers now set `checkIn: { time: <marking moment>, verificationMethod: "manual", markedBy: <userId> }` when marking a student `present` or `late` **and** the record doesn't already have a real check-in time — a later manual correction must never clobber an earlier genuine NFC-tap/self check-in time.
+- `absent`/`excused` never touch `checkIn`, as before.
+- Parents are now notified with this check-in time too (`NotificationService.sendManualAttendanceNotification`'s `checkInTime` param, added for the NFC-tap fix above, is now also passed from the manual-marking paths) — a manually-marked "present" is a real check-in, just not one that came through NFC.
+- Tests first, per Workflow Rule 1: [markAttendance.test.js](backend/tests/markAttendance.test.js) — present/late sets `checkIn.time`, absent/excused don't, a pre-existing real check-in time is preserved rather than overwritten, not-enrolled rejection, and (Workflow Rule 2) a double batch-save upserts the same doc rather than creating a duplicate. All failed against the pre-fix code, all pass now (38 backend tests total).
+- Verified end-to-end against a scratch DB (`amsa_verify_claude`): seeded an admin, tutor, student and class, called the real `POST /api/attendance/classes/:id/mark-batch` (the exact endpoint "Save All" calls) marking the student present, then `GET /api/attendance/admin/all` (what the table reads) — `checkIn.time` was present in the response where it would previously have been `null`.
+
+---
+
 ## NFC tap attendance marks students "late" even when tapped on time
 
 **Found:** 2026-09-14

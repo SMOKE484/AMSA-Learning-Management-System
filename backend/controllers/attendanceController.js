@@ -7,6 +7,12 @@ import Card from "../models/card.js";
 import { NotificationService } from "../utils/notificationService.js";
 import { TimeService } from "../utils/timeService.js";
 
+// A manual "present"/"late" marking is a real check-in (the tutor/admin is
+// looking at the student), just not one that came through NFC/self
+// check-in — it should still record and surface a check-in time. "absent"
+// and "excused" never had one to record.
+const CHECKED_IN_STATUSES = ['present', 'late'];
+
 export const markStudentAttendance = async (req, res) => {
   try {
     const { classId } = req.params;
@@ -43,26 +49,34 @@ export const markStudentAttendance = async (req, res) => {
     // Upsert: create or update attendance for this student in this class
     const existing = await Attendance.findOne({ class: classId, student: studentId });
 
+    // Record a check-in time for a fresh present/late marking — but never
+    // clobber a real NFC/self check-in time that's already on the record.
+    const needsCheckIn = CHECKED_IN_STATUSES.includes(status) && !existing?.checkIn?.time;
+    const checkInTime = needsCheckIn ? new Date() : null;
+
+    const setFields = {
+      status,
+      isVerified: true,
+      autoMarked: false,
+      notes: reason || `Marked by ${req.role}`,
+      manualOverride: {
+        by: req.userId,
+        reason: reason || `Marked by ${req.role}`,
+        timestamp: new Date(),
+        originalStatus: existing?.status ?? null
+      }
+    };
+    if (needsCheckIn) {
+      setFields.checkIn = { time: checkInTime, verificationMethod: 'manual', markedBy: req.userId };
+    }
+
     const attendance = await Attendance.findOneAndUpdate(
       { class: classId, student: studentId },
-      {
-        $set: {
-          status,
-          isVerified: true,
-          autoMarked: false,
-          notes: reason || `Marked by ${req.role}`,
-          manualOverride: {
-            by: req.userId,
-            reason: reason || `Marked by ${req.role}`,
-            timestamp: new Date(),
-            originalStatus: existing?.status ?? null
-          }
-        }
-      },
+      { $set: setFields },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    NotificationService.sendManualAttendanceNotification(studentId, classSchedule, status, req.role);
+    NotificationService.sendManualAttendanceNotification(studentId, classSchedule, status, req.role, checkInTime);
 
     res.json({ success: true, message: 'Attendance marked successfully', attendance });
   } catch (error) {
@@ -283,26 +297,32 @@ export const markBatchAttendance = async (req, res) => {
         try {
           const existing = await Attendance.findOne({ class: classId, student: studentId });
 
+          const needsCheckIn = CHECKED_IN_STATUSES.includes(status) && !existing?.checkIn?.time;
+          const checkInTime = needsCheckIn ? new Date() : null;
+
+          const setFields = {
+            status,
+            isVerified: true,
+            autoMarked: false,
+            notes: `Marked by ${req.role}`,
+            manualOverride: {
+              by: req.userId,
+              reason: `Marked by ${req.role}`,
+              timestamp: new Date(),
+              originalStatus: existing?.status ?? null
+            }
+          };
+          if (needsCheckIn) {
+            setFields.checkIn = { time: checkInTime, verificationMethod: 'manual', markedBy: req.userId };
+          }
+
           await Attendance.findOneAndUpdate(
             { class: classId, student: studentId },
-            {
-              $set: {
-                status,
-                isVerified: true,
-                autoMarked: false,
-                notes: `Marked by ${req.role}`,
-                manualOverride: {
-                  by: req.userId,
-                  reason: `Marked by ${req.role}`,
-                  timestamp: new Date(),
-                  originalStatus: existing?.status ?? null
-                }
-              }
-            },
+            { $set: setFields },
             { upsert: true, new: true, setDefaultsOnInsert: true }
           );
 
-          NotificationService.sendManualAttendanceNotification(studentId, classSchedule, status, req.role);
+          NotificationService.sendManualAttendanceNotification(studentId, classSchedule, status, req.role, checkInTime);
 
           return { studentId, success: true };
         } catch (err) {
