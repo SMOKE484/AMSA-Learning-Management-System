@@ -66,16 +66,24 @@ export const getMyChildrenAttendanceRecords = async (req, res) => {
     const children = await Student.find({ parents: req.userId }).select('_id');
     if (!children.length) return res.status(200).json({ records: [] });
 
-    const childrenIds = children.map(c => c._id);
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 100);
 
-    const records = await Attendance.find({ student: { $in: childrenIds } })
-      .populate({ path: 'student', select: 'user grade', populate: { path: 'user', select: 'name' } })
-      .populate({ path: 'class', select: 'subject scheduledDate grade' })
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    // Query per child, each capped at `limit` independently — a single
+    // combined query with one global sort+limit would let a child with many
+    // classes starve a sibling with fewer out of the response entirely.
+    const perChildRecords = await Promise.all(
+      children.map(child =>
+        Attendance.find({ student: child._id })
+          .populate({ path: 'student', select: 'user grade', populate: { path: 'user', select: 'name' } })
+          .populate({ path: 'class', select: 'subject scheduledDate grade' })
+          .sort({ createdAt: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+      )
+    );
+
+    const records = perChildRecords.flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     res.status(200).json({ records, page, limit });
   } catch (error) {
@@ -93,19 +101,23 @@ export const getMyChildrenMarks = async (req, res) => {
       return res.status(200).json({ marks: [] }); // No children, no marks
     }
 
-    // 2. Extract just the IDs
-    const childrenIds = children.map((child) => child._id);
-
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 100, 1), 200);
 
-    // 3. Find all marks where the 'student' is in our list of children IDs
-    const marks = await Mark.find({ student: { $in: childrenIds } })
-      .populate({ path: "student", select: "user grade", populate: { path: "user", select: "name" } })
-      .populate({ path: "tutor", select: "user", populate: { path: "user", select: "name" } })
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+    // Query per child, each capped at `limit` independently — same fairness
+    // fix as getMyChildrenAttendanceRecords above (see BUGS_AND_FIXES.md).
+    const perChildMarks = await Promise.all(
+      children.map((child) =>
+        Mark.find({ student: child._id })
+          .populate({ path: "student", select: "user grade", populate: { path: "user", select: "name" } })
+          .populate({ path: "tutor", select: "user", populate: { path: "user", select: "name" } })
+          .sort({ createdAt: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+      )
+    );
+
+    const marks = perChildMarks.flat().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     res.status(200).json({ marks, page, limit });
   } catch (error) {

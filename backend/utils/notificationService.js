@@ -451,9 +451,13 @@ export const sendAbsentAlertsBatch = async (studentIds, classDetails) => {
 
 /**
  * 7. Send "Manual Attendance" Notification (Student + Parents)
- * Triggered when an admin or tutor manually marks a student's attendance
+ * Triggered when an admin/tutor manually marks a student's attendance, or
+ * when a student checks in via NFC tap. `checkInTime`, when given (NFC tap —
+ * manual/tutor marking has no real check-in moment to report), is included
+ * in the parent's message so they know not just that but WHEN their child
+ * checked in.
  */
-export const sendManualAttendanceNotification = async (studentId, classDetails, status, markedByRole) => {
+export const sendManualAttendanceNotification = async (studentId, classDetails, status, markedByRole, checkInTime = null) => {
   try {
     const student = await Student.findById(studentId)
       .populate('user', 'name pushToken')
@@ -463,6 +467,9 @@ export const sendManualAttendanceNotification = async (studentId, classDetails, 
 
     const statusLabel = { present: 'present', absent: 'absent', late: 'late', excused: 'excused' }[status] || status;
     const subject = classDetails.subject || 'class';
+    const timeString = checkInTime
+      ? new Date(checkInTime).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: true })
+      : null;
 
     const messages = [];
 
@@ -480,13 +487,17 @@ export const sendManualAttendanceNotification = async (studentId, classDetails, 
 
     // Notify parents
     if (student.parents?.length > 0) {
+      const parentBody = timeString
+        ? `${student.user?.name} checked in for ${subject} at ${timeString}.`
+        : `${student.user?.name} has been marked ${statusLabel} for the ${subject} class.`;
+
       student.parents.forEach(parent => {
         if (parent.pushToken && Expo.isExpoPushToken(parent.pushToken)) {
           messages.push({
             to: parent.pushToken,
             sound: 'default',
             title: 'Attendance Alert 🏫',
-            body: `${student.user?.name} has been marked ${statusLabel} for the ${subject} class.`,
+            body: parentBody,
             data: { screen: 'ChildSchedule', studentId: student._id },
             priority: 'high'
           });

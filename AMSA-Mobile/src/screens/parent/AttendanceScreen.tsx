@@ -6,6 +6,7 @@ import {
   Alert, RefreshControl, Image,
 } from 'react-native';
 import { parentService, ChildAttendanceRecord } from '../../services/parent';
+import { groupRecordsByChild, formatCheckInTime } from '../../utils/attendanceDisplay';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { BrandPalette } from '../../components/theme';
@@ -170,16 +171,9 @@ const ParentAttendanceScreen = () => {
   const totalCount   = filteredRecords.length;
   const rate         = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
 
-  // Group by child when "All" selected so each child's records are together
-  const groupedByChild = useMemo(() => {
-    const map: Record<string, ChildAttendanceRecord[]> = {};
-    filteredRecords.forEach(r => {
-      const name = r.student?.user?.name || 'Unknown';
-      if (!map[name]) map[name] = [];
-      map[name].push(r);
-    });
-    return map;
-  }, [filteredRecords]);
+  // Group by child ID (not name — siblings can share a name) when "All" is
+  // selected so each child's records are together.
+  const groupedByChild = useMemo(() => groupRecordsByChild(filteredRecords), [filteredRecords]);
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return 'N/A';
@@ -310,9 +304,9 @@ const ParentAttendanceScreen = () => {
         </ScrollView>
 
         {/* ── RECORDS ───────────────────────────────────────────────────── */}
-        {Object.keys(groupedByChild).length > 0 ? (
-          Object.entries(groupedByChild).map(([childName, childRecords]) => (
-            <View key={childName}>
+        {groupedByChild.length > 0 ? (
+          groupedByChild.map(({ id: childId, name: childName, records: childRecords }) => (
+            <View key={childId}>
               {selectedChild === 'all' && (
                 <View style={s.childRow}>
                   <Image source={{ uri: getAvatarUrl(childName) }} style={s.childAvatar} />
@@ -326,9 +320,10 @@ const ParentAttendanceScreen = () => {
               </View>
 
               {childRecords.map((record, idx) => {
-                const color       = getStatusColor(record.status);
-                const subject     = record.class?.subject ?? 'Unknown Class';
-                const displayDate = getRecordDate(record);
+                const color        = getStatusColor(record.status);
+                const subject      = record.class?.subject ?? 'Unknown Class';
+                const displayDate  = getRecordDate(record);
+                const checkInTime  = formatCheckInTime(record);
 
                 return (
                   <GlassCard key={record._id || idx} accentColor={color} style={s.recordCard}>
@@ -338,7 +333,10 @@ const ParentAttendanceScreen = () => {
                       </View>
                       <View style={s.recordBody}>
                         <Text style={s.recordSubject}>{subject}</Text>
-                        <Text style={s.recordDate}>{formatDate(displayDate)}</Text>
+                        <Text style={s.recordDate}>
+                          {formatDate(displayDate)}
+                          {checkInTime ? ` · Checked in at ${checkInTime}` : ''}
+                        </Text>
                         {record.notes ? <Text style={s.recordNotes}>{record.notes}</Text> : null}
                       </View>
                       <View style={[s.statusBadge, { backgroundColor: color + '22', borderColor: color + '44' }]}>

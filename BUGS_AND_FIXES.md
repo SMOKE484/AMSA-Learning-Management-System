@@ -4,6 +4,25 @@ Log every bug here when found; update the same entry when it's fixed. Check this
 
 ---
 
+## Parent Attendance screen: check-in times not showing for other children
+
+**Found:** 2026-09-14
+**Status:** Fixed 2026-09-14
+
+**Symptom:** On the mobile parent Attendance screen ([AttendanceScreen.tsx](AMSA-Mobile/src/screens/parent/AttendanceScreen.tsx)), a parent with multiple children could see attendance records for one child but not for a sibling — the sibling's section was missing or empty. Separately, the screen never actually rendered a check-in *time* for any child, only a date.
+
+**Root cause:** Two independent bugs, both traced to [parentController.js](backend/controllers/parentController.js) and [AttendanceScreen.tsx](AMSA-Mobile/src/screens/parent/AttendanceScreen.tsx):
+1. **Backend (primary):** `getMyChildrenAttendanceRecords` (and the identical pattern in `getMyChildrenMarks`) queried `Attendance.find({ student: { $in: childrenIds } })` with **one combined sort+limit across the whole family** (default `limit: 50`). A child with more classes than a sibling could fill the entire 50-record window, silently pushing the sibling's records out of the response entirely — not just missing a time, missing from the screen altogether.
+2. **Frontend:** `AttendanceScreen.tsx` grouped records by `student.user.name` (a display string) instead of `student._id`, so two children sharing a name would have their sections merged. It also never formatted an actual HH:MM check-in time anywhere — `formatDate` only ever rendered a date.
+
+**Fix:**
+- `parentController.js`: `getMyChildrenAttendanceRecords` and `getMyChildrenMarks` now query **per child** (`Promise.all` over each child's own `find().sort().skip().limit()`), each capped at the page limit independently, then merge and re-sort by `createdAt` — no sibling can starve another out of the response regardless of how many records they have.
+- `AttendanceScreen.tsx`: grouping extracted to a pure, tested helper [`groupRecordsByChild`](AMSA-Mobile/src/utils/attendanceDisplay.ts) keyed by `student._id`; added `formatCheckInTime` to render the actual check-in time ("Checked in at 09:05 AM") next to the date, falling back to nothing (not a fabricated date-as-time) when the record has no `checkIn.time`.
+- Also extended parent notifications: `NotificationService.sendManualAttendanceNotification` ([notificationService.js](backend/utils/notificationService.js)) now accepts an optional `checkInTime` and includes it in the parent's push body ("checked in for Mathematics at 09:05 AM"); `nfcTapAttendance` ([attendanceController.js](backend/controllers/attendanceController.js)) now passes `attendance.checkIn.time` through so parents are notified of the actual check-in time, not just a status change. (Self check-in already had this via `sendAttendanceConfirmation` — this closes the same gap for NFC-tap attendance.)
+- Tests first, per Workflow Rule 1: [parentController.test.js](backend/tests/parentController.test.js) (fairness-across-siblings, per-child limit, no-children empty state, DB-unreachable 500), [notificationService.test.js](backend/tests/notificationService.test.js) (time included/omitted, no-token/no-student no-ops), [nfcTapAttendance.test.js](backend/tests/nfcTapAttendance.test.js) (fresh tap sends the time-bearing notification, a double tap sends **no** second notification and writes no duplicate `Attendance` doc, unrecognized card rejected). Mobile: set up Jest + `jest-expo` (previously no test runner in `AMSA-Mobile/`) and [attendanceDisplay.test.ts](AMSA-Mobile/src/utils/attendanceDisplay.test.ts) (grouping by ID, same-name siblings kept separate, empty list, missing-student record, time formatting present/missing/malformed). All failed against the pre-fix code, all pass now (30 backend, 7 mobile).
+
+---
+
 ## NFC tap attendance marks students "late" even when tapped on time
 
 **Found:** 2026-09-14

@@ -420,7 +420,7 @@ export const nfcTapAttendance = async (req, res) => {
     card.lastTapAt = now;
     await card.save();
 
-    NotificationService.sendManualAttendanceNotification(student._id, classSchedule, status, req.role);
+    NotificationService.sendManualAttendanceNotification(student._id, classSchedule, status, req.role, attendance.checkIn.time);
 
     res.json({
       success: true,
