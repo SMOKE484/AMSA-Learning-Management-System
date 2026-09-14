@@ -7,36 +7,16 @@
 
 ---
 
-## 🔴 CURRENT SESSION: NFC Tap-Attendance + Admin Mobile App
+## 🔴 CURRENT SESSION: Fixed inaccurate Admin Dashboard / Manage Schedules stats
 
-**Status:** Code-complete (backend + mobile), typechecks clean, **nothing committed yet**. Physical NFC cards have just arrived (Miccory NFC215 PVC cards, confirmed NDEF-writable).
+**Status:** Fixed, tested, verified against a scratch DB. Committed pending — see git status.
 
-**Plan file:** `C:\Users\hi\.claude\plans\clever-spinning-cerf.md` — read this first for full architecture/rationale.
+**What happened:** `GET /api/schedules` is paginated (`limit: 10` default, sorted oldest-first). `AdminDashboard.jsx` and `ManageSchedules.jsx` both called it with no params, so every stat on those two pages (`Total Classes`, `Today's Classes`, `Upcoming/Ongoing/Completed`) was silently computed from just the oldest 10 schedule records instead of the true totals — wrong as soon as a school has more than 10 classes. Full root cause and fix are logged in `BUGS_AND_FIXES.md` (repo root) — check that file before touching schedule stats/counts again.
 
-### What was built
-- A brand-new **admin/staff role in `AMSA-Mobile`** (previously mobile only had student/parent) that fully mirrors `react-admin-tutor-web`'s admin pages.
-- **NFC tap-attendance**: admin/staff taps a student's physical NFC card against their phone → shows the student's photo/name → auto-computes present/late from the class's scheduled start time → marks attendance server-side.
-- **Card enrollment**: admin picks a student, taps a blank card, app writes a server-generated opaque token onto it (never the raw student ID — revocable if lost).
-- **New restricted `staff` role**: can log in but can reach *only* the Tap Attendance screen. Enforced by (a) the mobile tab navigator only rendering the Tap+Profile tabs for `role === 'staff'`, and (b) the backend — `staff` appears in exactly **one** `authorize()` call in the whole backend (`POST /api/attendance/nfc-tap`).
-
-### Immediate next steps (in order)
-1. **Kick off a new EAS dev-client build** — `react-native-nfc-manager` is a new native module, so the currently-installed dev-client on test devices will NOT have NFC support until rebuilt:
-   ```bash
-   cd AMSA-Mobile
-   eas build --profile development --platform android   # (or --platform ios)
-   ```
-2. **Install the new build on a physical NFC-capable phone** — NFC cannot be tested in a simulator/emulator.
-3. **Seed test data**: an admin account, a student with a class scheduled *today* (so the tap screen's auto-resolution has something to match), and log in as admin.
-4. **Test the Enroll flow**: Admin tab → Enroll → pick the test student → tap a blank card → confirm it writes successfully.
-5. **Test the Tap flow**: Tap tab → Start Scanning → tap the enrolled card → confirm the student's name/photo/status appear. (Note: no photo will show until one is uploaded via Students → [student] → Change Photo in the admin app.)
-6. **Test duplicate tap** (should show "already marked", not double-mark) and **test an unenrolled/blank card** (should show a clear "not recognized" error).
-7. **Seed a `staff` role test account** (via Admins → Staff in the app, or directly in Mongo: `role: "staff"`), log in as that account, and confirm it can reach *only* Tap + Profile — try to deep-link/navigate to any other admin screen and confirm it's inaccessible.
-8. Once verified, **commit the work** (nothing from this feature is committed yet — see "Uncommitted Changes" below) and consider whether to phase a rollout (e.g. pilot with one class before issuing cards school-wide).
-
-### Key files (new/changed this session)
-**Backend:** `models/card.js` (new), `models/{user,student,attendance,schoolConfig}.js`, `controllers/cardController.js` (new), `controllers/{admin,attendance}Controller.js`, `routes/cardRoutes.js` (new), `routes/{admin,attendance}Routes.js`, `utils/s3Service.js` (added `folder` param), `server.js` (mounted `/api/cards`, added `nfcLateGraceMinutes` to school-config GET/PUT).
-
-**Mobile:** `App.tsx` (new Admin/Staff Stack+Tab navigators), `app.json` (added `react-native-nfc-manager` plugin), all of `src/screens/admin/*` (new — 17 screens), `src/services/{admin,cards,attendanceAdmin}.ts` (new), `src/components/{ChipSelector,FormModal}.tsx` (new, shared by the admin CRUD screens), `src/components/icons.ts` (added `card-outline`, `add-circle-outline`).
+**What changed:**
+- `AdminDashboard.jsx` / `ManageSchedules.jsx` now read `pagination.total` (and per-status/per-date-filtered totals) from the backend instead of `schedules.length`/`.filter().length`.
+- `AdminDashboard.jsx`'s "today" is now computed in `Africa/Johannesburg` via `Intl.DateTimeFormat`, not `new Date().toISOString()` (which could be a day off near midnight SAST).
+- **`react-admin-tutor-web/` now has a test runner** — Vitest + React Testing Library (it had none before; this was the "first feature touching meaningful logic" that CLAUDE.md says must set one up). Config: `vite.config.js` (`test` block) + `src/test/setup.js`. Run with `npm test` / `npm run test:watch` inside `react-admin-tutor-web/`. Two test files exist so far: `src/pages/Admin/AdminDashboard.test.jsx`, `src/pages/Admin/ManageSchedules.test.jsx` — good templates for the next web component test (mock `../../services/apiService`'s default export, wrap in `MemoryRouter`/`SnackbarProvider` as needed).
 
 ### Design decisions worth knowing before touching this code
 - **Card data model**: physical tag holds a single NDEF text record containing an opaque random token — never the student's Mongo ID. `Card.token` → `Card.student` mapping lives server-side. Losing a card = revoke it (`PATCH /api/cards/:id/revoke`); the physical tag itself becomes permanently useless, no need to recover it.
@@ -44,6 +24,7 @@
 - **Student photo is a NEW backend-stored field** (`Student.photoUrl`, admin-uploaded via `POST /api/admin/students/:id/photo`). Do not confuse with the pre-existing student/parent `ProfileScreen.tsx` photo picker — that one is local-device-only (`saveProfilePicture()`), never uploaded, and is unrelated/irrelevant to what the tap screen displays.
 - **No tutor-update endpoint exists** (backend or web) — `ManageTutorsScreen.tsx` intentionally only supports create/list/delete, matching the web app's actual capability. Don't "fix" this without checking if it's wanted first.
 - **`AccountManagerScreen.tsx`** is a shared component backing both `ManageAdminsScreen.tsx` and `ManageStaffScreen.tsx` (same UI, different endpoints) — edit the shared component, not both screens, for UI changes.
+- **Any other page reading `/schedules` for a count or stat** (not just a list to display) must read `pagination.total` (or a filtered/status-scoped total), never `schedules.length` — the endpoint is paginated and this exact bug has now recurred twice (`ClassAttendance.jsx` fix in `c6a1402`, this session's fix in `AdminDashboard.jsx`/`ManageSchedules.jsx`).
 
 ---
 

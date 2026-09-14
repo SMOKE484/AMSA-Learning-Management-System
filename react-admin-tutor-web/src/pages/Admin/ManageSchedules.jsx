@@ -17,6 +17,8 @@ import { useSnackbar } from '../../context/SnackbarContext';
 
 const ManageSchedules = () => {
   const [schedules, setSchedules] = useState([]);
+  const [scheduleTotal, setScheduleTotal] = useState(0);
+  const [statusCounts, setStatusCounts] = useState({ scheduled: 0, ongoing: 0, completed: 0 });
   const [tutors, setTutors] = useState([]);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,14 +45,28 @@ const ManageSchedules = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [schedulesRes, tutorsRes, studentsRes, academicRes] = await Promise.all([
-        api.get('/schedules'),
+      // /schedules is paginated (default limit 10). The table needs a high enough
+      // limit to show the whole list, but stats must never be derived from that
+      // array's length/filter — they come straight from the backend's totals
+      // (pagination.total, and a per-status total for each status count), so
+      // they stay correct even past the table's cap.
+      const [schedulesRes, tutorsRes, studentsRes, academicRes, scheduledRes, ongoingRes, completedRes] = await Promise.all([
+        api.get('/schedules', { params: { limit: 500 } }),
         api.get('/admin/tutors'),
         api.get('/admin/students'),
-        api.get('/academic/config')
+        api.get('/academic/config'),
+        api.get('/schedules', { params: { status: 'scheduled', limit: 1 } }),
+        api.get('/schedules', { params: { status: 'ongoing', limit: 1 } }),
+        api.get('/schedules', { params: { status: 'completed', limit: 1 } })
       ]);
 
       setSchedules(schedulesRes.data.schedules || []);
+      setScheduleTotal(schedulesRes.data.pagination?.total ?? schedulesRes.data.schedules?.length ?? 0);
+      setStatusCounts({
+        scheduled: scheduledRes.data.pagination?.total ?? 0,
+        ongoing: ongoingRes.data.pagination?.total ?? 0,
+        completed: completedRes.data.pagination?.total ?? 0
+      });
       setTutors(tutorsRes.data.tutors || []);
       setStudents(studentsRes.data.students || []);
       setAcademicConfig(academicRes.data);
@@ -182,7 +198,7 @@ const ManageSchedules = () => {
           <Paper sx={{ p: 3, textAlign: 'center' }}>
             <ScheduleIcon sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
             <Typography variant="h4" sx={{ fontWeight: 700 }}>
-              {schedules.length}
+              {scheduleTotal}
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Total Classes
@@ -192,7 +208,7 @@ const ManageSchedules = () => {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Paper sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
-              {schedules.filter(s => s.status === 'scheduled').length}
+              {statusCounts.scheduled}
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Upcoming
@@ -202,7 +218,7 @@ const ManageSchedules = () => {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Paper sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="h4" sx={{ fontWeight: 700, color: 'warning.main' }}>
-              {schedules.filter(s => s.status === 'ongoing').length}
+              {statusCounts.ongoing}
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Ongoing
@@ -212,7 +228,7 @@ const ManageSchedules = () => {
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Paper sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="h4" sx={{ fontWeight: 700, color: 'success.main' }}>
-              {schedules.filter(s => s.status === 'completed').length}
+              {statusCounts.completed}
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Completed
