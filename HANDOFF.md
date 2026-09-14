@@ -7,16 +7,17 @@
 
 ---
 
-## 🔴 CURRENT SESSION: Fixed inaccurate Admin Dashboard / Manage Schedules stats
+## 🔴 CURRENT SESSION: Manage Schedules — newest/scheduled-first ordering + Edit CRUD
 
-**Status:** Fixed, tested, verified against a scratch DB. Committed pending — see git status.
+**Status:** Done, tested, verified against a scratch DB (login → view sorted list → edit a class → confirm persisted). Committed pending — see git status.
 
-**What happened:** `GET /api/schedules` is paginated (`limit: 10` default, sorted oldest-first). `AdminDashboard.jsx` and `ManageSchedules.jsx` both called it with no params, so every stat on those two pages (`Total Classes`, `Today's Classes`, `Upcoming/Ongoing/Completed`) was silently computed from just the oldest 10 schedule records instead of the true totals — wrong as soon as a school has more than 10 classes. Full root cause and fix are logged in `BUGS_AND_FIXES.md` (repo root) — check that file before touching schedule stats/counts again.
+**What happened:** Two asks on the same page. (1) The previous session's fix bumped `ManageSchedules.jsx`'s `/schedules` fetch to `limit: 500`, but the endpoint still sorted oldest-first — so once a school passes 500 total classes, upcoming/scheduled ones (chronologically newest) would sort past the cap and never appear at all, and even under 500 they were buried at the bottom of a long completed-history list. (2) `ManageSchedules.jsx` had Create and Delete but no Edit — `PUT /api/schedules/:id` already existed server-side (`updateSchedule` in `scheduleController.js`) but nothing in the web app called it.
 
 **What changed:**
-- `AdminDashboard.jsx` / `ManageSchedules.jsx` now read `pagination.total` (and per-status/per-date-filtered totals) from the backend instead of `schedules.length`/`.filter().length`.
-- `AdminDashboard.jsx`'s "today" is now computed in `Africa/Johannesburg` via `Intl.DateTimeFormat`, not `new Date().toISOString()` (which could be a day off near midnight SAST).
-- **`react-admin-tutor-web/` now has a test runner** — Vitest + React Testing Library (it had none before; this was the "first feature touching meaningful logic" that CLAUDE.md says must set one up). Config: `vite.config.js` (`test` block) + `src/test/setup.js`. Run with `npm test` / `npm run test:watch` inside `react-admin-tutor-web/`. Two test files exist so far: `src/pages/Admin/AdminDashboard.test.jsx`, `src/pages/Admin/ManageSchedules.test.jsx` — good templates for the next web component test (mock `../../services/apiService`'s default export, wrap in `MemoryRouter`/`SnackbarProvider` as needed).
+- `GET /api/schedules` now takes an optional `sort` query param (`utils/scheduleSort.js` → `resolveScheduleSortOrder`, unit-tested in `tests/scheduleSort.test.js`). Defaults to the original ascending/soonest-first order when omitted, so every other caller (`TutorSchedules.jsx`, `AssignedStudents.jsx`, `ClassAttendance.jsx`, mobile `admin.ts`/`student.ts`/`attendanceAdmin.ts`) is unaffected. `ManageSchedules.jsx` is the only caller passing `sort: 'desc'`.
+- `ManageSchedules.jsx` now has full CRUD: an Edit (pencil) icon per row opens the same create dialog pre-filled with that class's data (`openEditDialog`), disabled for `completed`/`cancelled` rows (nothing left to edit, and the backend rejects past-date updates anyway). Submit branches `PUT` vs `POST` on an `editingId` state. The auto-assign-students toggle is hidden in edit mode (backend's `updateSchedule` doesn't re-run auto-assignment — showing it would be misleading and risks wiping the roster if toggled with an empty manual list), always showing the manual student multi-select instead, pre-filled with the class's current students.
+- Idempotency: Save button disables itself the instant it's clicked (`disabled={submitting}`) *and* `handleSubmit` short-circuits if a submission is already in flight — belt-and-braces per Workflow Rule 2.
+- Tests: `ManageSchedules.test.jsx` extended with an ordering test (asserts `sort: 'desc'` is passed) and a CRUD describe block — prefill, successful edit → refetch, edit disabled on completed classes, double-submit protection, missing-required-field validation (no API call fires), and a failed-PUT case (dialog stays open with the entered data so the admin can retry, per the UX error-state rules).
 
 ### Design decisions worth knowing before touching this code
 - **Card data model**: physical tag holds a single NDEF text record containing an opaque random token — never the student's Mongo ID. `Card.token` → `Card.student` mapping lives server-side. Losing a card = revoke it (`PATCH /api/cards/:id/revoke`); the physical tag itself becomes permanently useless, no need to recover it.
@@ -25,6 +26,8 @@
 - **No tutor-update endpoint exists** (backend or web) — `ManageTutorsScreen.tsx` intentionally only supports create/list/delete, matching the web app's actual capability. Don't "fix" this without checking if it's wanted first.
 - **`AccountManagerScreen.tsx`** is a shared component backing both `ManageAdminsScreen.tsx` and `ManageStaffScreen.tsx` (same UI, different endpoints) — edit the shared component, not both screens, for UI changes.
 - **Any other page reading `/schedules` for a count or stat** (not just a list to display) must read `pagination.total` (or a filtered/status-scoped total), never `schedules.length` — the endpoint is paginated and this exact bug has now recurred twice (`ClassAttendance.jsx` fix in `c6a1402`, this session's fix in `AdminDashboard.jsx`/`ManageSchedules.jsx`).
+- **`GET /api/schedules?sort=desc`** (added this session) reverses both `scheduledDate` and `startTime` ordering. Omit it (the default) for anything that wants the original soonest-first order — only pass `desc` where "newest/most recent on top" is the actual desired UX, like `ManageSchedules.jsx`.
+- **`updateSchedule` (`PUT /api/schedules/:id`) does not auto-assign students** — unlike `createSchedule`, it just sets `classSchedule.students` to whatever array is sent, with no auto-assign fallback. `ManageSchedules.jsx`'s edit dialog deliberately hides the auto-assign toggle for this reason; don't re-add it to edit mode without adding the matching backend support first.
 
 ---
 

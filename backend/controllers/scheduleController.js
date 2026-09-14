@@ -3,6 +3,7 @@ import Attendance from "../models/attendance.js";
 import Student from "../models/student.js";
 import Tutor from "../models/tutor.js";
 import { sendClassNotification } from "../utils/notificationService.js";
+import { resolveScheduleSortOrder } from "../utils/scheduleSort.js";
 
 // Helper: Create initial "Absent" records
 const createAttendanceRecords = async (classId, studentIds) => {
@@ -68,7 +69,7 @@ export const createSchedule = async (req, res) => {
 
 export const getSchedules = async (req, res) => {
   try {
-    const { tutorId, studentId, subject, grade, startDate, endDate, status, page = 1, limit = 10 } = req.query;
+    const { tutorId, studentId, subject, grade, startDate, endDate, status, page = 1, limit = 10, sort } = req.query;
     const filter = {};
 
     // Enforce role-based scope — users can only see schedules relevant to them
@@ -99,9 +100,10 @@ export const getSchedules = async (req, res) => {
       if (endDate) filter.scheduledDate.$lte = new Date(endDate);
     }
 
+    const sortOrder = resolveScheduleSortOrder(sort);
     const schedules = await ClassSchedule.find(filter)
       .populate("tutor", "user").populate("students", "user grade")
-      .sort({ scheduledDate: 1 }).skip((page - 1) * limit).limit(parseInt(limit));
+      .sort({ scheduledDate: sortOrder, startTime: sortOrder }).skip((page - 1) * limit).limit(parseInt(limit));
     const total = await ClassSchedule.countDocuments(filter);
 
     res.json({ schedules, pagination: { page: parseInt(page), limit: parseInt(limit), total } });

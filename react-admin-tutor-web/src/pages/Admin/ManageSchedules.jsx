@@ -4,12 +4,15 @@ import {
   TableCell, TableContainer, TableHead, TableRow, CircularProgress,
   Chip, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, FormControl, InputLabel, Select, MenuItem, Alert,
-  OutlinedInput, FormControlLabel, Switch
+  OutlinedInput, FormControlLabel, Switch, InputAdornment
 } from '@mui/material';
-import { 
-  Add as AddIcon, 
+import {
+  Add as AddIcon,
   Delete as DeleteIcon,
-  Schedule as ScheduleIcon 
+  Edit as EditIcon,
+  Schedule as ScheduleIcon,
+  Search as SearchIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import api from '../../services/apiService';
@@ -24,7 +27,9 @@ const ManageSchedules = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [academicConfig, setAcademicConfig] = useState({ subjects: [], grades: [] });
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [formData, setFormData] = useState({
     tutor: '',
@@ -49,9 +54,12 @@ const ManageSchedules = () => {
       // limit to show the whole list, but stats must never be derived from that
       // array's length/filter — they come straight from the backend's totals
       // (pagination.total, and a per-status total for each status count), so
-      // they stay correct even past the table's cap.
+      // they stay correct even past the table's cap. sort: 'desc' puts the
+      // newest/most-recently-scheduled classes on top — including anything
+      // upcoming, which otherwise sorts to the bottom (and can fall past the
+      // 500-row cap entirely) behind a large history of completed classes.
       const [schedulesRes, tutorsRes, studentsRes, academicRes, scheduledRes, ongoingRes, completedRes] = await Promise.all([
-        api.get('/schedules', { params: { limit: 500 } }),
+        api.get('/schedules', { params: { limit: 500, sort: 'desc' } }),
         api.get('/admin/tutors'),
         api.get('/admin/students'),
         api.get('/academic/config'),
@@ -93,38 +101,43 @@ const ManageSchedules = () => {
 
   const handleSubmit = async (e) => {
   e.preventDefault();
-  
-  if (!formData.tutor || !formData.subject || !formData.grade || !formData.title || 
+
+  if (submitting) return; // in-flight request already covers this submission
+
+  if (!formData.tutor || !formData.subject || !formData.grade || !formData.title ||
       !formData.scheduledDate || !formData.startTime || !formData.endTime) {
     showSnackbar('Please fill all required fields.', 'error');
     return;
   }
 
+  const isEditing = Boolean(editingId);
+
   try {
     setSubmitting(true);
-    
-    console.log('Sending schedule data:', {
-      ...formData,
-      tutor: formData.tutor // Make sure tutor ID is included
-    });
 
-    const response = await api.post('/schedules', formData);
-    
-    showSnackbar('Class schedule created successfully!', 'success');
+    if (isEditing) {
+      await api.put(`/schedules/${editingId}`, formData);
+      showSnackbar('Class schedule updated successfully!', 'success');
+    } else {
+      await api.post('/schedules', formData);
+      showSnackbar('Class schedule created successfully!', 'success');
+    }
+
     setDialogOpen(false);
     resetForm();
     fetchData();
   } catch (error) {
-    console.error('❌ Schedule creation failed:', error);
+    console.error(`❌ Schedule ${isEditing ? 'update' : 'creation'} failed:`, error);
     console.error('Response:', error.response);
-    
+
     if (error.response?.status === 403) {
       showSnackbar('Access denied. Please check your permissions.', 'error');
-    } else if (error.response?.status === 400) {
+    } else if (error.response?.status === 400 || error.response?.status === 409) {
       showSnackbar(error.response.data.message || 'Invalid request data.', 'error');
     } else {
-      showSnackbar(error.response?.data?.message || 'Failed to create schedule.', 'error');
+      showSnackbar(error.response?.data?.message || `Failed to ${isEditing ? 'update' : 'create'} schedule.`, 'error');
     }
+    // Leave the dialog open with the entered data so the admin can fix and retry.
   } finally {
     setSubmitting(false);
   }
@@ -143,6 +156,7 @@ const ManageSchedules = () => {
       students: [],
       autoAssignStudents: true
     });
+    setEditingId(null);
   };
 
   const handleDelete = async (scheduleId) => {
@@ -167,9 +181,58 @@ const ManageSchedules = () => {
     return colors[status] || 'default';
   };
 
+  // A class that already happened (completed) or was called off (cancelled)
+  // has nothing left to edit — the backend also rejects date/time changes
+  // for classes in the past.
+  const isEditable = (status) => !['completed', 'cancelled'].includes(status);
+
   const openCreateDialog = () => {
+    resetForm();
     setDialogOpen(true);
   };
+
+  const openEditDialog = (schedule) => {
+    setEditingId(schedule._id);
+    setFormData({
+      tutor: schedule.tutor?._id || '',
+      subject: schedule.subject || '',
+      grade: schedule.grade || '',
+      title: schedule.title || '',
+      description: schedule.description || '',
+      // scheduledDate is stored as a UTC-midnight instant representing the
+      // intended calendar date — read the date portion straight off the ISO
+      // string rather than re-parsing through a local Date, which could
+      // shift it a day depending on the browser's timezone.
+      scheduledDate: schedule.scheduledDate ? schedule.scheduledDate.split('T')[0] : '',
+      startTime: schedule.startTime || '09:00',
+      endTime: schedule.endTime || '10:00',
+      students: (schedule.students || []).map((s) => s._id),
+      autoAssignStudents: false
+    });
+    setDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    resetForm();
+  };
+
+  // Search filters the already-loaded table client-side (schedules is capped
+  // at 500 rows, small enough that this is instant) — it must never touch
+  // scheduleTotal/statusCounts, which stay as the true backend totals.
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredSchedules = normalizedQuery
+    ? schedules.filter((schedule) => {
+        const haystack = [
+          schedule.title,
+          schedule.subject,
+          schedule.tutor?.user?.name,
+          `grade ${schedule.grade}`,
+          schedule.status
+        ].filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(normalizedQuery);
+      })
+    : schedules;
 
   return (
     <Box>
@@ -237,12 +300,66 @@ const ManageSchedules = () => {
         </Grid>
       </Grid>
 
+      {/* Search */}
+      {!loading && schedules.length > 0 && (
+        <TextField
+          label="Search classes"
+          placeholder="Search by class, tutor, subject, or grade"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          fullWidth
+          sx={{ mb: 3 }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" color="action" />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery && (
+                <InputAdornment position="end">
+                  <IconButton size="small" aria-label="Clear" onClick={() => setSearchQuery('')}>
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              )
+            }
+          }}
+        />
+      )}
+
       {/* Schedules Table */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '40vh' }}>
           <CircularProgress />
         </Box>
-      ) : schedules.length > 0 ? (
+      ) : schedules.length === 0 ? (
+        <Paper sx={{ p: 6, textAlign: 'center' }}>
+          <ScheduleIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            No Class Schedules
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Create your first class schedule to get started.
+          </Typography>
+          <Button variant="contained" onClick={openCreateDialog}>
+            Create Schedule
+          </Button>
+        </Paper>
+      ) : filteredSchedules.length === 0 ? (
+        <Paper sx={{ p: 6, textAlign: 'center' }}>
+          <SearchIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            No classes match "{searchQuery}"
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Try a different class, tutor, subject, or grade.
+          </Typography>
+          <Button variant="outlined" onClick={() => setSearchQuery('')}>
+            Clear search
+          </Button>
+        </Paper>
+      ) : (
         <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
           <Table>
             <TableHead>
@@ -256,7 +373,7 @@ const ManageSchedules = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {schedules.map((schedule) => (
+              {filteredSchedules.map((schedule) => (
                 <TableRow key={schedule._id}>
                   <TableCell>
                     <Typography variant="body1" sx={{ fontWeight: 500 }}>
@@ -292,8 +409,17 @@ const ManageSchedules = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <IconButton 
-                      size="small" 
+                    <IconButton
+                      size="small"
+                      aria-label="Edit class"
+                      onClick={() => openEditDialog(schedule)}
+                      disabled={!isEditable(schedule.status)}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      aria-label="Delete class"
                       color="error"
                       onClick={() => handleDelete(schedule._id)}
                       disabled={schedule.status === 'completed'}
@@ -306,30 +432,17 @@ const ManageSchedules = () => {
             </TableBody>
           </Table>
         </TableContainer>
-      ) : (
-        <Paper sx={{ p: 6, textAlign: 'center' }}>
-          <ScheduleIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            No Class Schedules
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Create your first class schedule to get started.
-          </Typography>
-          <Button variant="contained" onClick={openCreateDialog}>
-            Create Schedule
-          </Button>
-        </Paper>
       )}
 
-      {/* Create Schedule Dialog */}
-      <Dialog 
-        open={dialogOpen} 
-        onClose={() => setDialogOpen(false)}
+      {/* Create/Edit Schedule Dialog */}
+      <Dialog
+        open={dialogOpen}
+        onClose={closeDialog}
         maxWidth="md"
         fullWidth
       >
         <DialogTitle sx={{ fontWeight: 600 }}>
-          Create New Class Schedule
+          {editingId ? 'Edit Class Schedule' : 'Create New Class Schedule'}
         </DialogTitle>
         <DialogContent>
           <Box component="form" sx={{ mt: 2 }}>
@@ -443,27 +556,31 @@ const ManageSchedules = () => {
                 />
               </Grid>
               
-              {/* Auto-assign students toggle */}
-              <Grid size={{ xs: 12 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={formData.autoAssignStudents}
-                      onChange={(e) => setFormData({...formData, autoAssignStudents: e.target.checked})}
-                      name="autoAssignStudents"
-                    />
-                  }
-                  label="Automatically assign all students in this grade and subject"
-                />
-                {formData.autoAssignStudents && (
-                  <Alert severity="info" sx={{ mt: 1 }}>
-                    All students enrolled in {formData.subject || 'selected subject'} for Grade {formData.grade || 'selected grade'} will be automatically assigned to this class.
-                  </Alert>
-                )}
-              </Grid>
-              
-              {/* Manual student selection (only when auto-assign is off) */}
-              {!formData.autoAssignStudents && (
+              {/* Auto-assign students toggle — create only; editing always shows the
+                  explicit roster below, since updating a schedule doesn't re-run
+                  auto-assignment server-side. */}
+              {!editingId && (
+                <Grid size={{ xs: 12 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={formData.autoAssignStudents}
+                        onChange={(e) => setFormData({...formData, autoAssignStudents: e.target.checked})}
+                        name="autoAssignStudents"
+                      />
+                    }
+                    label="Automatically assign all students in this grade and subject"
+                  />
+                  {formData.autoAssignStudents && (
+                    <Alert severity="info" sx={{ mt: 1 }}>
+                      All students enrolled in {formData.subject || 'selected subject'} for Grade {formData.grade || 'selected grade'} will be automatically assigned to this class.
+                    </Alert>
+                  )}
+                </Grid>
+              )}
+
+              {/* Manual student selection (create: only when auto-assign is off; edit: always) */}
+              {(editingId || !formData.autoAssignStudents) && (
                 <Grid size={{ xs: 12 }}>
                   <FormControl fullWidth>
                     <InputLabel>Assign Students</InputLabel>
@@ -488,15 +605,15 @@ const ManageSchedules = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setDialogOpen(false)}>
+          <Button onClick={closeDialog}>
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleSubmit}
             variant="contained"
             disabled={submitting}
           >
-            {submitting ? <CircularProgress size={24} /> : 'Create Schedule'}
+            {submitting ? <CircularProgress size={24} /> : (editingId ? 'Save Changes' : 'Create Schedule')}
           </Button>
         </DialogActions>
       </Dialog>
